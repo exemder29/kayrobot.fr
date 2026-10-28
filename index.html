@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>KayRobot - Connexion</title>
+  <title>KayRobot - Connexion Discord</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
@@ -36,28 +36,28 @@
       </div>
       <div>
         <h1 class="text-2xl font-bold text-white">KayRobot Console</h1>
-        <p class="text-xs text-gray-400 mt-1">Identifiant : 1563284812351938611</p>
+        <p class="text-xs text-gray-400 mt-1">Identifiant Bot : 1563284812351938611</p>
       </div>
     </div>
 
-    <!-- Status Message -->
+    <!-- Message de statut -->
     <div id="auth-status-msg" class="bg-discord-inputBg p-3 rounded-lg border border-gray-800 text-xs text-gray-400">
-      Veuillez vous connecter pour accéder à la console d'administration.
+      Connectez-vous avec votre compte Discord pour accéder à la console d'administration.
     </div>
 
-    <!-- Boutons de connexion -->
+    <!-- Bouton de connexion Discord -->
     <div class="space-y-3">
-      <button id="btn-login-google" class="w-full bg-discord-blurple hover:bg-discord-blurple/80 text-white font-bold py-3 px-4 rounded-xl transition duration-200 flex items-center justify-center space-x-2 shadow-lg">
-        <i class="fa-brands fa-google text-lg"></i>
-        <span>Se connecter avec Google</span>
+      <button id="btn-login-discord" class="w-full bg-discord-blurple hover:bg-opacity-90 text-white font-bold py-3 px-4 rounded-xl transition duration-200 flex items-center justify-center space-x-2 shadow-lg">
+        <i class="fa-brands fa-discord text-xl"></i>
+        <span>Se connecter avec Discord</span>
       </button>
     </div>
 
-    <!-- Info OAuth / Subdomain Handler -->
+    <!-- Info OAuth / Handler -->
     <div class="pt-4 border-t border-gray-800 text-left">
       <p class="text-[11px] text-gray-500 leading-relaxed">
         <i class="fa-solid fa-shield-halved text-discord-blurple mr-1"></i>
-        Handler Firebase Auth :<br>
+        Redirect URI Firebase Auth :<br>
         <code class="text-discord-blurple select-all text-[10px] break-all">https://kayrobot-discord.firebaseapp.com/__/auth/handler</code>
       </p>
     </div>

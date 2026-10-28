@@ -1,5 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-app.js";
-import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-auth.js";
+import { getAuth, signInWithPopup, OAuthProvider, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-auth.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyASXGakU4JZXw6LfYH1h4TSjhnb8MTr62A",
@@ -13,23 +13,23 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const statusMsg = document.getElementById("auth-status-msg");
-const btnGoogle = document.getElementById("btn-login-google");
+const btnDiscord = document.getElementById("btn-login-discord");
 
-// Rediriger vers le dashboard si déjà connecté
+// Redirection si déjà connecté
 onAuthStateChanged(auth, (user) => {
   if (user) {
-    statusMsg.innerHTML = `<span class="text-green-400 font-semibold"><i class="fa-solid fa-circle-check"></i> Connecté en tant que ${user.displayName || user.email}</span>. Redirection...`;
+    statusMsg.innerHTML = `<span class="text-green-400 font-semibold"><i class="fa-solid fa-circle-check"></i> Connecté avec Discord (${user.displayName || user.email})</span>. Redirection...`;
     setTimeout(() => {
       window.location.href = "dashboard.html";
     }, 1000);
   }
 });
 
-// Connexion Google via Firebase Auth Handler
-btnGoogle.addEventListener("click", () => {
-  const provider = new GoogleAuthProvider();
-  statusMsg.innerHTML = '<i class="fa-solid fa-spinner fa-spin text-discord-blurple"></i> Connexion en cours...';
-  
+// Connexion via le provider OIDC / OAuth2 Discord configuré sur Firebase Auth
+btnDiscord.addEventListener("click", () => {
+  const provider = new OAuthProvider("oidc.discord");
+  statusMsg.innerHTML = '<i class="fa-solid fa-spinner fa-spin text-discord-blurple"></i> Connexion via Discord en cours...';
+
   signInWithPopup(auth, provider)
     .then((result) => {
       statusMsg.innerHTML = `<span class="text-green-400"><i class="fa-solid fa-check"></i> Bienvenue ${result.user.displayName}!</span>`;
