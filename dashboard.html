@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>KayRobot - Dashboard Complet (Options & Salons)</title>
+  <title>KayRobot - Dashboard Bot Connecté</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
@@ -53,6 +53,10 @@
         <button id="nav-categories" class="nav-btn w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-sm font-medium transition cursor-pointer">
           <i class="fa-solid fa-layer-group w-5 text-center"></i>
           <span>Panneau par Catégories</span>
+        </button>
+        <button id="nav-settings" class="nav-btn w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-sm font-medium transition cursor-pointer">
+          <i class="fa-solid fa-key w-5 text-center"></i>
+          <span>Token Bot (API)</span>
         </button>
       </nav>
     </div>
@@ -104,7 +108,7 @@
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 hidden" id="guilds-container"></div>
       </section>
 
-      <!-- TAB 2: CATEGORIES DRAFTBOT STYLE -->
+      <!-- TAB 2: CATEGORIES DRAFTBOT STYLE AVEC RECHERCHE DE SALONS -->
       <section id="tab-categories" class="tab-content hidden space-y-6">
         
         <!-- Cartes Catégories -->
@@ -113,39 +117,39 @@
             <i class="fa-solid fa-hammer text-discord-red text-lg"></i>
             <div>
               <div class="font-bold text-xs text-white">Modération</div>
-              <div class="text-[10px] text-gray-400">Toutes les sanctions</div>
+              <div class="text-[10px] text-gray-400">Sanctions</div>
             </div>
           </button>
 
           <button onclick="switchCategory('messages')" id="cat-btn-messages" class="category-btn bg-discord-cardBg border border-gray-800 p-3 rounded-xl text-left transition cursor-pointer flex flex-col justify-between space-y-2">
             <i class="fa-solid fa-comments text-discord-blurple text-lg"></i>
             <div>
-              <div class="font-bold text-xs text-white">Messages & Embeds</div>
-              <div class="text-[10px] text-gray-400">Annonces & Webhooks</div>
+              <div class="font-bold text-xs text-white">Messages</div>
+              <div class="text-[10px] text-gray-400">Annonces & Embeds</div>
             </div>
           </button>
 
           <button onclick="switchCategory('salons')" id="cat-btn-salons" class="category-btn bg-discord-cardBg border border-gray-800 p-3 rounded-xl text-left transition cursor-pointer flex flex-col justify-between space-y-2">
             <i class="fa-solid fa-hashtag text-discord-green text-lg"></i>
             <div>
-              <div class="font-bold text-xs text-white">Salons & Purges</div>
-              <div class="text-[10px] text-gray-400">Auto-setup & Verrouillage</div>
+              <div class="font-bold text-xs text-white">Salons</div>
+              <div class="text-[10px] text-gray-400">Purge & Lock</div>
             </div>
           </button>
 
           <button onclick="switchCategory('roles')" id="cat-btn-roles" class="category-btn bg-discord-cardBg border border-gray-800 p-3 rounded-xl text-left transition cursor-pointer flex flex-col justify-between space-y-2">
             <i class="fa-solid fa-user-shield text-discord-yellow text-lg"></i>
             <div>
-              <div class="font-bold text-xs text-white">Rôles & Permissions</div>
-              <div class="text-[10px] text-gray-400">Gestion des membres</div>
+              <div class="font-bold text-xs text-white">Rôles</div>
+              <div class="text-[10px] text-gray-400">Gestion</div>
             </div>
           </button>
 
           <button onclick="switchCategory('tickets')" id="cat-btn-tickets" class="category-btn bg-discord-cardBg border border-gray-800 p-3 rounded-xl text-left transition cursor-pointer flex flex-col justify-between space-y-2">
             <i class="fa-solid fa-ticket text-discord-fuchsia text-lg"></i>
             <div>
-              <div class="font-bold text-xs text-white">Tickets & Support</div>
-              <div class="text-[10px] text-gray-400">Panneaux & Salons staff</div>
+              <div class="font-bold text-xs text-white">Tickets</div>
+              <div class="text-[10px] text-gray-400">Support</div>
             </div>
           </button>
 
@@ -153,355 +157,265 @@
             <i class="fa-solid fa-circle-info text-blue-400 text-lg"></i>
             <div>
               <div class="font-bold text-xs text-white">Informations</div>
-              <div class="text-[10px] text-gray-400">Statistiques & Ping</div>
+              <div class="text-[10px] text-gray-400">Stats & Ping</div>
             </div>
           </button>
         </div>
 
-        <!-- CONTENU DES CATEGORIES DE COMMANDES -->
+        <!-- CONTENU DES CATEGORIES -->
         <div class="bg-discord-cardBg p-6 rounded-xl border border-gray-800 min-h-[420px]">
 
           <!-- 1. CATEGORIE MODERATION -->
           <div id="category-moderation" class="cmd-category-content space-y-4">
             <h3 class="text-base font-bold text-white border-b border-gray-800 pb-2 flex items-center gap-2">
-              <i class="fa-solid fa-hammer text-discord-red"></i> Modération & Sanctions des membres
+              <i class="fa-solid fa-hammer text-discord-red"></i> Modération & Sanctions
             </h3>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-
               <!-- /bannir -->
               <div class="bg-discord-inputBg p-4 rounded-xl border border-gray-800 space-y-3">
-                <div class="font-bold text-discord-red text-xs flex items-center gap-1.5"><i class="fa-solid fa-user-slash"></i> /bannir</div>
-                <div>
-                  <label class="block text-[11px] text-gray-400 mb-1">Membre cible</label>
-                  <input type="text" id="ban-user" placeholder="ID ou Mention du membre" class="w-full bg-discord-cardBg border border-gray-700 rounded p-2 text-xs text-white">
-                </div>
-                <div>
-                  <label class="block text-[11px] text-gray-400 mb-1">Effacer messages (jours)</label>
-                  <select id="ban-delete-days" class="w-full bg-discord-cardBg border border-gray-700 rounded p-2 text-xs text-white">
-                    <option value="0">Conserver les messages</option>
-                    <option value="1">Purger les messages des dernières 24h</option>
-                    <option value="7">Purger les messages des 7 derniers jours</option>
-                  </select>
-                </div>
-                <div>
-                  <label class="block text-[11px] text-gray-400 mb-1">Raison du bannissement</label>
-                  <input type="text" id="ban-reason" placeholder="Spam, insultes, non respect des règles..." class="w-full bg-discord-cardBg border border-gray-700 rounded p-2 text-xs text-white">
-                </div>
-                <button onclick="runCommand('bannir')" class="w-full bg-discord-red hover:bg-opacity-80 text-white font-bold py-2 rounded text-xs transition cursor-pointer">Exécuter /bannir</button>
+                <div class="font-bold text-discord-red text-xs">/bannir (Ban)</div>
+                <input type="text" id="ban-user" placeholder="ID du membre" class="w-full bg-discord-cardBg border border-gray-700 rounded p-2 text-xs text-white">
+                <select id="ban-delete-days" class="w-full bg-discord-cardBg border border-gray-700 rounded p-2 text-xs text-white">
+                  <option value="0">Conserver les messages</option>
+                  <option value="1">Purger 24h</option>
+                  <option value="7">Purger 7 jours</option>
+                </select>
+                <input type="text" id="ban-reason" placeholder="Raison..." class="w-full bg-discord-cardBg border border-gray-700 rounded p-2 text-xs text-white">
+                <button onclick="executeBotCommand('bannir')" class="w-full bg-discord-red text-white font-bold py-2 rounded text-xs cursor-pointer">Exécuter /bannir sur le serveur</button>
               </div>
-
               <!-- /sourdine -->
               <div class="bg-discord-inputBg p-4 rounded-xl border border-gray-800 space-y-3">
-                <div class="font-bold text-discord-yellow text-xs flex items-center gap-1.5"><i class="fa-solid fa-volume-xmark"></i> /sourdine (Timeout)</div>
-                <div>
-                  <label class="block text-[11px] text-gray-400 mb-1">Membre cible</label>
-                  <input type="text" id="timeout-user" placeholder="ID du membre" class="w-full bg-discord-cardBg border border-gray-700 rounded p-2 text-xs text-white">
+                <div class="font-bold text-discord-yellow text-xs">/sourdine (Timeout)</div>
+                <input type="text" id="timeout-user" placeholder="ID du membre" class="w-full bg-discord-cardBg border border-gray-700 rounded p-2 text-xs text-white">
+                <div class="flex gap-2">
+                  <input type="number" id="timeout-duration" placeholder="5" class="w-1/2 bg-discord-cardBg border border-gray-700 rounded p-2 text-xs text-white">
+                  <select id="timeout-unit" class="w-1/2 bg-discord-cardBg border border-gray-700 rounded p-2 text-xs text-white">
+                    <option value="m">Minutes</option>
+                    <option value="h">Heures</option>
+                    <option value="d">Jours</option>
+                  </select>
                 </div>
-                <div>
-                  <label class="block text-[11px] text-gray-400 mb-1">Durée du mute</label>
-                  <div class="flex gap-2">
-                    <input type="number" id="timeout-duration" placeholder="5" class="w-1/2 bg-discord-cardBg border border-gray-700 rounded p-2 text-xs text-white">
-                    <select id="timeout-unit" class="w-1/2 bg-discord-cardBg border border-gray-700 rounded p-2 text-xs text-white">
-                      <option value="m">Minutes</option>
-                      <option value="h">Heures</option>
-                      <option value="d">Jours</option>
-                    </select>
-                  </div>
-                </div>
-                <div>
-                  <label class="block text-[11px] text-gray-400 mb-1">Raison</label>
-                  <input type="text" id="timeout-reason" placeholder="Spam vocal/textuel" class="w-full bg-discord-cardBg border border-gray-700 rounded p-2 text-xs text-white">
-                </div>
-                <button onclick="runCommand('sourdine')" class="w-full bg-discord-yellow hover:bg-opacity-80 text-black font-bold py-2 rounded text-xs transition cursor-pointer">Exécuter /sourdine</button>
+                <input type="text" id="timeout-reason" placeholder="Raison..." class="w-full bg-discord-cardBg border border-gray-700 rounded p-2 text-xs text-white">
+                <button onclick="executeBotCommand('sourdine')" class="w-full bg-discord-yellow text-black font-bold py-2 rounded text-xs cursor-pointer">Exécuter /sourdine sur le serveur</button>
               </div>
-
               <!-- /expulser -->
               <div class="bg-discord-inputBg p-4 rounded-xl border border-gray-800 space-y-3">
-                <div class="font-bold text-discord-yellow text-xs flex items-center gap-1.5"><i class="fa-solid fa-user-minus"></i> /expulser (Kick)</div>
-                <div>
-                  <label class="block text-[11px] text-gray-400 mb-1">Membre cible</label>
-                  <input type="text" id="kick-user" placeholder="ID du membre" class="w-full bg-discord-cardBg border border-gray-700 rounded p-2 text-xs text-white">
-                </div>
-                <div>
-                  <label class="block text-[11px] text-gray-400 mb-1">Raison de l'expulsion</label>
-                  <input type="text" id="kick-reason" placeholder="Avertissement préalable" class="w-full bg-discord-cardBg border border-gray-700 rounded p-2 text-xs text-white">
-                </div>
-                <button onclick="runCommand('expulser')" class="w-full bg-discord-yellow hover:bg-opacity-80 text-black font-bold py-2 rounded text-xs transition cursor-pointer">Exécuter /expulser</button>
+                <div class="font-bold text-discord-yellow text-xs">/expulser (Kick)</div>
+                <input type="text" id="kick-user" placeholder="ID du membre" class="w-full bg-discord-cardBg border border-gray-700 rounded p-2 text-xs text-white">
+                <input type="text" id="kick-reason" placeholder="Raison..." class="w-full bg-discord-cardBg border border-gray-700 rounded p-2 text-xs text-white">
+                <button onclick="executeBotCommand('expulser')" class="w-full bg-discord-yellow text-black font-bold py-2 rounded text-xs cursor-pointer">Exécuter /expulser</button>
               </div>
-
               <!-- /avertir -->
               <div class="bg-discord-inputBg p-4 rounded-xl border border-gray-800 space-y-3">
-                <div class="font-bold text-discord-fuchsia text-xs flex items-center gap-1.5"><i class="fa-solid fa-triangle-exclamation"></i> /avertir (Warn)</div>
-                <div>
-                  <label class="block text-[11px] text-gray-400 mb-1">Membre cible</label>
-                  <input type="text" id="warn-user" placeholder="ID du membre" class="w-full bg-discord-cardBg border border-gray-700 rounded p-2 text-xs text-white">
-                </div>
-                <div>
-                  <label class="block text-[11px] text-gray-400 mb-1">Raison du warn</label>
-                  <input type="text" id="warn-reason" placeholder="Comportement inapproprié" class="w-full bg-discord-cardBg border border-gray-700 rounded p-2 text-xs text-white">
-                </div>
-                <button onclick="runCommand('avertir')" class="w-full bg-discord-fuchsia hover:bg-opacity-80 text-white font-bold py-2 rounded text-xs transition cursor-pointer">Ajouter /avertir</button>
+                <div class="font-bold text-discord-fuchsia text-xs">/avertir (Warn)</div>
+                <input type="text" id="warn-user" placeholder="ID du membre" class="w-full bg-discord-cardBg border border-gray-700 rounded p-2 text-xs text-white">
+                <input type="text" id="warn-reason" placeholder="Raison..." class="w-full bg-discord-cardBg border border-gray-700 rounded p-2 text-xs text-white">
+                <button onclick="executeBotCommand('avertir')" class="w-full bg-discord-fuchsia text-white font-bold py-2 rounded text-xs cursor-pointer">Exécuter /avertir</button>
               </div>
-
             </div>
           </div>
 
-          <!-- 2. CATEGORIE MESSAGES & EMBEDS -->
+          <!-- 2. CATEGORIE MESSAGES & EMBEDS (AVEC RECHERCHE DE SALON) -->
           <div id="category-messages" class="cmd-category-content hidden space-y-4">
             <h3 class="text-base font-bold text-white border-b border-gray-800 pb-2 flex items-center gap-2">
-              <i class="fa-solid fa-comments text-discord-blurple"></i> Envoi de Messages & Embeds Personnalisés
+              <i class="fa-solid fa-comments text-discord-blurple"></i> Messages & Embeds
             </h3>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-
               <!-- /say -->
               <div class="bg-discord-inputBg p-4 rounded-xl border border-gray-800 space-y-3">
-                <div class="font-bold text-discord-blurple text-xs flex items-center gap-1.5"><i class="fa-solid fa-comment"></i> /say</div>
+                <div class="font-bold text-discord-blurple text-xs">/say</div>
+                <!-- Recherche + Sélection de salon -->
                 <div>
                   <label class="block text-[11px] text-gray-400 mb-1">Salon cible :</label>
+                  <input type="text" placeholder="🔍 Rechercher un salon..." oninput="filterChannels(this, 'say-channel-select')" class="w-full bg-discord-cardBg border border-gray-700 rounded p-1.5 text-xs text-white mb-1">
                   <select id="say-channel-select" class="guild-channels-dropdown w-full bg-discord-cardBg border border-gray-700 rounded p-2 text-xs text-white">
-                    <option value="">-- Sélectionnez un salon textuel --</option>
+                    <option value="">-- Sélectionnez un salon --</option>
                   </select>
                 </div>
-                <div>
-                  <label class="block text-[11px] text-gray-400 mb-1">Message du bot :</label>
-                  <textarea id="say-msg" placeholder="Texte à faire dire au bot..." class="w-full bg-discord-cardBg border border-gray-700 rounded p-2 text-xs text-white" rows="2"></textarea>
-                </div>
-                <button onclick="runCommand('say')" class="w-full bg-discord-blurple hover:bg-opacity-80 text-white font-bold py-2 rounded text-xs transition cursor-pointer">Envoyer /say</button>
+                <textarea id="say-msg" placeholder="Message..." class="w-full bg-discord-cardBg border border-gray-700 rounded p-2 text-xs text-white" rows="2"></textarea>
+                <button onclick="executeBotCommand('say')" class="w-full bg-discord-blurple text-white font-bold py-2 rounded text-xs cursor-pointer">Envoyer /say</button>
               </div>
 
               <!-- /embed -->
               <div class="bg-discord-inputBg p-4 rounded-xl border border-gray-800 space-y-3">
-                <div class="font-bold text-discord-green text-xs flex items-center gap-1.5"><i class="fa-solid fa-paper-plane"></i> /embed</div>
+                <div class="font-bold text-discord-green text-xs">/embed</div>
                 <div>
                   <label class="block text-[11px] text-gray-400 mb-1">Salon cible :</label>
+                  <input type="text" placeholder="🔍 Rechercher un salon..." oninput="filterChannels(this, 'embed-channel-select')" class="w-full bg-discord-cardBg border border-gray-700 rounded p-1.5 text-xs text-white mb-1">
                   <select id="embed-channel-select" class="guild-channels-dropdown w-full bg-discord-cardBg border border-gray-700 rounded p-2 text-xs text-white">
-                    <option value="">-- Sélectionnez un salon textuel --</option>
+                    <option value="">-- Sélectionnez un salon --</option>
                   </select>
                 </div>
-                <div>
-                  <label class="block text-[11px] text-gray-400 mb-1">Titre de l'embed</label>
-                  <input type="text" id="embed-title" placeholder="Avis Important !" class="w-full bg-discord-cardBg border border-gray-700 rounded p-2 text-xs text-white">
-                </div>
-                <div>
-                  <label class="block text-[11px] text-gray-400 mb-1">Description / Contenu</label>
-                  <textarea id="embed-desc" placeholder="Contenu structuré..." class="w-full bg-discord-cardBg border border-gray-700 rounded p-2 text-xs text-white" rows="2"></textarea>
-                </div>
-                <div class="grid grid-cols-2 gap-2">
-                  <div>
-                    <label class="block text-[11px] text-gray-400 mb-1">Image (URL)</label>
-                    <input type="text" id="embed-image" placeholder="https://..." class="w-full bg-discord-cardBg border border-gray-700 rounded p-2 text-xs text-white">
-                  </div>
-                  <div>
-                    <label class="block text-[11px] text-gray-400 mb-1">Couleur bordure</label>
-                    <input type="color" id="embed-color" value="#5865F2" class="w-full h-8 bg-discord-cardBg border border-gray-700 rounded cursor-pointer">
-                  </div>
-                </div>
-                <button onclick="runCommand('embed')" class="w-full bg-discord-green hover:bg-opacity-80 text-black font-bold py-2 rounded text-xs transition cursor-pointer">Poster /embed</button>
+                <input type="text" id="embed-title" placeholder="Titre" class="w-full bg-discord-cardBg border border-gray-700 rounded p-2 text-xs text-white">
+                <textarea id="embed-desc" placeholder="Description..." class="w-full bg-discord-cardBg border border-gray-700 rounded p-2 text-xs text-white" rows="2"></textarea>
+                <input type="color" id="embed-color" value="#5865F2" class="w-full h-8 bg-discord-cardBg border border-gray-700 rounded cursor-pointer">
+                <button onclick="executeBotCommand('embed')" class="w-full bg-discord-green text-black font-bold py-2 rounded text-xs cursor-pointer">Poster /embed</button>
               </div>
-
-              <!-- /bump-auto -->
-              <div class="bg-discord-inputBg p-4 rounded-xl border border-gray-800 space-y-3">
-                <div class="font-bold text-discord-yellow text-xs flex items-center gap-1.5"><i class="fa-solid fa-bell"></i> /bump-auto</div>
-                <div>
-                  <label class="block text-[11px] text-gray-400 mb-1">Salon de rappel :</label>
-                  <select id="bump-channel-select" class="guild-channels-dropdown w-full bg-discord-cardBg border border-gray-700 rounded p-2 text-xs text-white">
-                    <option value="">-- Sélectionnez le salon de rappel --</option>
-                  </select>
-                </div>
-                <div>
-                  <label class="block text-[11px] text-gray-400 mb-1">Rôle à mentionner</label>
-                  <input type="text" id="bump-role" placeholder="ID du rôle (ex: Bumper)" class="w-full bg-discord-cardBg border border-gray-700 rounded p-2 text-xs text-white">
-                </div>
-                <button onclick="runCommand('bump-auto')" class="w-full bg-discord-yellow hover:bg-opacity-80 text-black font-bold py-2 rounded text-xs transition cursor-pointer">Activer /bump-auto</button>
-              </div>
-
             </div>
           </div>
 
-          <!-- 3. CATEGORIE SALONS & STRUCTURE -->
+          <!-- 3. CATEGORIE SALONS (AVEC RECHERCHE DE SALONS) -->
           <div id="category-salons" class="cmd-category-content hidden space-y-4">
             <h3 class="text-base font-bold text-white border-b border-gray-800 pb-2 flex items-center gap-2">
-              <i class="fa-solid fa-hashtag text-discord-green"></i> Salons, Purges & Verrouillages
+              <i class="fa-solid fa-hashtag text-discord-green"></i> Salons & Purges
             </h3>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-
               <!-- /nettoyer -->
               <div class="bg-discord-inputBg p-4 rounded-xl border border-gray-800 space-y-3">
-                <div class="font-bold text-gray-200 text-xs flex items-center gap-1.5"><i class="fa-solid fa-broom"></i> /nettoyer (Purger messages)</div>
+                <div class="font-bold text-gray-200 text-xs">/nettoyer (Purge)</div>
                 <div>
-                  <label class="block text-[11px] text-gray-400 mb-1">Salon à nettoyer :</label>
+                  <label class="block text-[11px] text-gray-400 mb-1">Salon cible :</label>
+                  <input type="text" placeholder="🔍 Rechercher un salon..." oninput="filterChannels(this, 'clear-channel-select')" class="w-full bg-discord-cardBg border border-gray-700 rounded p-1.5 text-xs text-white mb-1">
                   <select id="clear-channel-select" class="guild-channels-dropdown w-full bg-discord-cardBg border border-gray-700 rounded p-2 text-xs text-white">
-                    <option value="">-- Sélectionnez le salon --</option>
+                    <option value="">-- Sélectionnez un salon --</option>
                   </select>
                 </div>
-                <div>
-                  <label class="block text-[11px] text-gray-400 mb-1">Nombre de messages (1 à 100)</label>
-                  <input type="number" id="clear-count" placeholder="20" class="w-full bg-discord-cardBg border border-gray-700 rounded p-2 text-xs text-white">
-                </div>
-                <div>
-                  <label class="block text-[11px] text-gray-400 mb-1">Filtrer par utilisateur (Optionnel)</label>
-                  <input type="text" id="clear-target-user" placeholder="ID du membre uniquement" class="w-full bg-discord-cardBg border border-gray-700 rounded p-2 text-xs text-white">
-                </div>
-                <button onclick="runCommand('nettoyer')" class="w-full bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 rounded text-xs transition cursor-pointer">Exécuter /nettoyer</button>
+                <input type="number" id="clear-count" placeholder="Nombre de messages (1-100)" class="w-full bg-discord-cardBg border border-gray-700 rounded p-2 text-xs text-white">
+                <button onclick="executeBotCommand('nettoyer')" class="w-full bg-gray-700 text-white font-bold py-2 rounded text-xs cursor-pointer">Exécuter /nettoyer</button>
               </div>
 
               <!-- /mode-lent -->
               <div class="bg-discord-inputBg p-4 rounded-xl border border-gray-800 space-y-3">
-                <div class="font-bold text-discord-fuchsia text-xs flex items-center gap-1.5"><i class="fa-solid fa-gauge-simple-high"></i> /mode-lent (Slowmode)</div>
+                <div class="font-bold text-discord-fuchsia text-xs">/mode-lent (Slowmode)</div>
                 <div>
-                  <label class="block text-[11px] text-gray-400 mb-1">Salon concerné :</label>
+                  <label class="block text-[11px] text-gray-400 mb-1">Salon cible :</label>
+                  <input type="text" placeholder="🔍 Rechercher un salon..." oninput="filterChannels(this, 'slowmode-channel-select')" class="w-full bg-discord-cardBg border border-gray-700 rounded p-1.5 text-xs text-white mb-1">
                   <select id="slowmode-channel-select" class="guild-channels-dropdown w-full bg-discord-cardBg border border-gray-700 rounded p-2 text-xs text-white">
-                    <option value="">-- Sélectionnez le salon --</option>
+                    <option value="">-- Sélectionnez un salon --</option>
                   </select>
                 </div>
-                <div>
-                  <label class="block text-[11px] text-gray-400 mb-1">Délai en secondes (0 = désactivé)</label>
-                  <input type="number" id="slowmode-sec" placeholder="5" class="w-full bg-discord-cardBg border border-gray-700 rounded p-2 text-xs text-white">
-                </div>
-                <button onclick="runCommand('mode-lent')" class="w-full bg-discord-fuchsia hover:bg-opacity-80 text-white font-bold py-2 rounded text-xs transition cursor-pointer">Appliquer /mode-lent</button>
+                <input type="number" id="slowmode-sec" placeholder="Secondes (0 pour désactiver)" class="w-full bg-discord-cardBg border border-gray-700 rounded p-2 text-xs text-white">
+                <button onclick="executeBotCommand('mode-lent')" class="w-full bg-discord-fuchsia text-white font-bold py-2 rounded text-xs cursor-pointer">Appliquer /mode-lent</button>
               </div>
 
-              <!-- /verrouiller & /deverrouiller -->
+              <!-- /verrouiller -->
               <div class="bg-discord-inputBg p-4 rounded-xl border border-gray-800 space-y-3">
-                <div class="font-bold text-yellow-400 text-xs flex items-center gap-1.5"><i class="fa-solid fa-lock"></i> /verrouiller & /deverrouiller</div>
+                <div class="font-bold text-yellow-400 text-xs">/verrouiller & /deverrouiller</div>
                 <div>
-                  <label class="block text-[11px] text-gray-400 mb-1">Salon verrouillé :</label>
+                  <label class="block text-[11px] text-gray-400 mb-1">Salon cible :</label>
+                  <input type="text" placeholder="🔍 Rechercher un salon..." oninput="filterChannels(this, 'lock-channel-select')" class="w-full bg-discord-cardBg border border-gray-700 rounded p-1.5 text-xs text-white mb-1">
                   <select id="lock-channel-select" class="guild-channels-dropdown w-full bg-discord-cardBg border border-gray-700 rounded p-2 text-xs text-white">
-                    <option value="">-- Sélectionnez le salon --</option>
+                    <option value="">-- Sélectionnez un salon --</option>
                   </select>
-                </div>
-                <div>
-                  <label class="block text-[11px] text-gray-400 mb-1">Raison de la fermeture</label>
-                  <input type="text" id="lock-reason" placeholder="Raid, pause du salon..." class="w-full bg-discord-cardBg border border-gray-700 rounded p-2 text-xs text-white">
                 </div>
                 <div class="flex gap-2">
-                  <button onclick="runCommand('verrouiller')" class="w-1/2 bg-yellow-600 hover:bg-yellow-500 text-white font-bold py-2 rounded text-xs transition cursor-pointer">Verrouiller</button>
-                  <button onclick="runCommand('deverrouiller')" class="w-1/2 bg-green-600 hover:bg-green-500 text-white font-bold py-2 rounded text-xs transition cursor-pointer">Déverrouiller</button>
+                  <button onclick="executeBotCommand('verrouiller')" class="w-1/2 bg-yellow-600 text-white font-bold py-2 rounded text-xs cursor-pointer">Lock</button>
+                  <button onclick="executeBotCommand('deverrouiller')" class="w-1/2 bg-green-600 text-white font-bold py-2 rounded text-xs cursor-pointer">Unlock</button>
                 </div>
               </div>
 
-              <!-- /serveur (Auto-setup) -->
+              <!-- /serveur -->
               <div class="bg-discord-inputBg p-4 rounded-xl border border-gray-800 space-y-3">
-                <div class="font-bold text-discord-green text-xs flex items-center gap-1.5"><i class="fa-solid fa-wand-magic-sparkles"></i> /serveur (Structure auto)</div>
-                <p class="text-[11px] text-gray-400">Crée automatiquement la structure de catégories et salons recommandés sur votre serveur.</p>
-                <button onclick="runCommand('serveur')" class="w-full bg-discord-green hover:bg-opacity-80 text-black font-bold py-2 rounded text-xs transition cursor-pointer">Générer la structure (/serveur)</button>
+                <div class="font-bold text-discord-green text-xs">/serveur (Auto-setup)</div>
+                <p class="text-[11px] text-gray-400">Génère automatiquement les catégories et salons par défaut.</p>
+                <button onclick="executeBotCommand('serveur')" class="w-full bg-discord-green text-black font-bold py-2 rounded text-xs cursor-pointer">Générer la structure</button>
               </div>
-
             </div>
           </div>
 
           <!-- 4. CATEGORIE ROLES -->
           <div id="category-roles" class="cmd-category-content hidden space-y-4">
             <h3 class="text-base font-bold text-white border-b border-gray-800 pb-2 flex items-center gap-2">
-              <i class="fa-solid fa-user-shield text-discord-yellow"></i> Rôles & Attribution aux Membres
+              <i class="fa-solid fa-user-shield text-discord-yellow"></i> Rôles
             </h3>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-
-              <!-- /role creer -->
               <div class="bg-discord-inputBg p-4 rounded-xl border border-gray-800 space-y-3">
-                <div class="font-bold text-discord-yellow text-xs flex items-center gap-1.5"><i class="fa-solid fa-shield-cat"></i> /role creer</div>
-                <div>
-                  <label class="block text-[11px] text-gray-400 mb-1">Nom du nouveau rôle</label>
-                  <input type="text" id="role-create-name" placeholder="VIP / Modérateur" class="w-full bg-discord-cardBg border border-gray-700 rounded p-2 text-xs text-white">
-                </div>
-                <div>
-                  <label class="block text-[11px] text-gray-400 mb-1">Couleur</label>
-                  <input type="color" id="role-create-color" value="#5865F2" class="w-full h-8 bg-discord-cardBg border border-gray-700 rounded cursor-pointer">
-                </div>
-                <button onclick="runCommand('role-creer')" class="w-full bg-discord-yellow hover:bg-opacity-80 text-black font-bold py-2 rounded text-xs transition cursor-pointer">Créer le rôle</button>
+                <div class="font-bold text-discord-yellow text-xs">/role creer</div>
+                <input type="text" id="role-create-name" placeholder="Nom du rôle" class="w-full bg-discord-cardBg border border-gray-700 rounded p-2 text-xs text-white">
+                <input type="color" id="role-create-color" value="#5865F2" class="w-full h-8 bg-discord-cardBg border border-gray-700 rounded cursor-pointer">
+                <button onclick="executeBotCommand('role-creer')" class="w-full bg-discord-yellow text-black font-bold py-2 rounded text-xs cursor-pointer">Créer le rôle</button>
               </div>
-
-              <!-- /role ajouter & /role retirer -->
               <div class="bg-discord-inputBg p-4 rounded-xl border border-gray-800 space-y-3">
-                <div class="font-bold text-discord-blurple text-xs flex items-center gap-1.5"><i class="fa-solid fa-user-gear"></i> /role ajouter & /role retirer</div>
-                <div>
-                  <label class="block text-[11px] text-gray-400 mb-1">Membre cible</label>
-                  <input type="text" id="role-member-id" placeholder="ID du membre" class="w-full bg-discord-cardBg border border-gray-700 rounded p-2 text-xs text-white">
-                </div>
-                <div>
-                  <label class="block text-[11px] text-gray-400 mb-1">Rôle concerné</label>
-                  <input type="text" id="role-target-id" placeholder="ID du rôle" class="w-full bg-discord-cardBg border border-gray-700 rounded p-2 text-xs text-white">
-                </div>
+                <div class="font-bold text-discord-blurple text-xs">/role ajouter / retirer</div>
+                <input type="text" id="role-member-id" placeholder="ID du Membre" class="w-full bg-discord-cardBg border border-gray-700 rounded p-2 text-xs text-white">
+                <input type="text" id="role-target-id" placeholder="ID du Rôle" class="w-full bg-discord-cardBg border border-gray-700 rounded p-2 text-xs text-white">
                 <div class="flex gap-2">
-                  <button onclick="runCommand('role-ajouter')" class="w-1/2 bg-green-600 hover:bg-green-500 text-white font-bold py-2 rounded text-xs transition cursor-pointer">Ajouter</button>
-                  <button onclick="runCommand('role-retirer')" class="w-1/2 bg-red-600 hover:bg-red-500 text-white font-bold py-2 rounded text-xs transition cursor-pointer">Retirer</button>
+                  <button onclick="executeBotCommand('role-ajouter')" class="w-1/2 bg-green-600 text-white font-bold py-2 rounded text-xs cursor-pointer">Ajouter</button>
+                  <button onclick="executeBotCommand('role-retirer')" class="w-1/2 bg-red-600 text-white font-bold py-2 rounded text-xs cursor-pointer">Retirer</button>
                 </div>
               </div>
-
             </div>
           </div>
 
-          <!-- 5. CATEGORIE TICKETS -->
+          <!-- 5. CATEGORIE TICKETS (AVEC RECHERCHE DE SALON) -->
           <div id="category-tickets" class="cmd-category-content hidden space-y-4">
             <h3 class="text-base font-bold text-white border-b border-gray-800 pb-2 flex items-center gap-2">
-              <i class="fa-solid fa-ticket text-discord-fuchsia"></i> Système de Tickets & Assistance
+              <i class="fa-solid fa-ticket text-discord-fuchsia"></i> Tickets & Support
             </h3>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-
-              <!-- /ticket config -->
               <div class="bg-discord-inputBg p-4 rounded-xl border border-gray-800 space-y-3">
-                <div class="font-bold text-discord-fuchsia text-xs flex items-center gap-1.5"><i class="fa-solid fa-sliders"></i> /ticket config</div>
+                <div class="font-bold text-discord-fuchsia text-xs">/ticket config</div>
                 <div>
-                  <label class="block text-[11px] text-gray-400 mb-1">Salon de réception des demandes Staff :</label>
+                  <label class="block text-[11px] text-gray-400 mb-1">Salon des demandes staff :</label>
+                  <input type="text" placeholder="🔍 Rechercher un salon..." oninput="filterChannels(this, 'ticket-req-channel-select')" class="w-full bg-discord-cardBg border border-gray-700 rounded p-1.5 text-xs text-white mb-1">
                   <select id="ticket-req-channel-select" class="guild-channels-dropdown w-full bg-discord-cardBg border border-gray-700 rounded p-2 text-xs text-white">
                     <option value="">-- Sélectionnez un salon --</option>
                   </select>
                 </div>
-                <div>
-                  <label class="block text-[11px] text-gray-400 mb-1">ID Rôle équipe Modération/Staff</label>
-                  <input type="text" id="ticket-staff-role" placeholder="1234567890..." class="w-full bg-discord-cardBg border border-gray-700 rounded p-2 text-xs text-white">
-                </div>
-                <button onclick="runCommand('ticket-config')" class="w-full bg-discord-blurple hover:bg-opacity-80 text-white font-bold py-2 rounded text-xs transition cursor-pointer">Sauvegarder config tickets</button>
+                <input type="text" id="ticket-staff-role" placeholder="ID Rôle Staff" class="w-full bg-discord-cardBg border border-gray-700 rounded p-2 text-xs text-white">
+                <button onclick="executeBotCommand('ticket-config')" class="w-full bg-discord-blurple text-white font-bold py-2 rounded text-xs cursor-pointer">Enregistrer config</button>
               </div>
-
-              <!-- /ticket panneau -->
               <div class="bg-discord-inputBg p-4 rounded-xl border border-gray-800 space-y-3">
-                <div class="font-bold text-discord-green text-xs flex items-center gap-1.5"><i class="fa-solid fa-table-columns"></i> /ticket panneau</div>
+                <div class="font-bold text-discord-green text-xs">/ticket panneau</div>
                 <div>
-                  <label class="block text-[11px] text-gray-400 mb-1">Salon d'affichage du panneau public :</label>
+                  <label class="block text-[11px] text-gray-400 mb-1">Salon d'affichage :</label>
+                  <input type="text" placeholder="🔍 Rechercher un salon..." oninput="filterChannels(this, 'ticket-panel-channel-select')" class="w-full bg-discord-cardBg border border-gray-700 rounded p-1.5 text-xs text-white mb-1">
                   <select id="ticket-panel-channel-select" class="guild-channels-dropdown w-full bg-discord-cardBg border border-gray-700 rounded p-2 text-xs text-white">
                     <option value="">-- Sélectionnez un salon --</option>
                   </select>
                 </div>
-                <div>
-                  <label class="block text-[11px] text-gray-400 mb-1">Titre du panneau support</label>
-                  <input type="text" id="ticket-panel-title" placeholder="Ouvrir un Ticket de Support" class="w-full bg-discord-cardBg border border-gray-700 rounded p-2 text-xs text-white">
-                </div>
-                <button onclick="runCommand('ticket-panneau')" class="w-full bg-discord-green hover:bg-opacity-80 text-black font-bold py-2 rounded text-xs transition cursor-pointer">Poster le panneau ticket</button>
+                <input type="text" id="ticket-panel-title" placeholder="Titre du panneau" class="w-full bg-discord-cardBg border border-gray-700 rounded p-2 text-xs text-white">
+                <button onclick="executeBotCommand('ticket-panneau')" class="w-full bg-discord-green text-black font-bold py-2 rounded text-xs cursor-pointer">Poster le panneau</button>
               </div>
-
             </div>
           </div>
 
-          <!-- 6. CATEGORIE INFOS -->
+          <!-- 6. CATEGORIE INFOS (AVEC RECHERCHE DE SALON) -->
           <div id="category-infos" class="cmd-category-content hidden space-y-4">
             <h3 class="text-base font-bold text-white border-b border-gray-800 pb-2 flex items-center gap-2">
-              <i class="fa-solid fa-circle-info text-blue-400"></i> Informations & Utilitaires
+              <i class="fa-solid fa-circle-info text-blue-400"></i> Informations
             </h3>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-
-              <!-- /ping -->
               <div class="bg-discord-inputBg p-4 rounded-xl border border-gray-800 space-y-3">
-                <div class="font-bold text-blue-400 text-xs flex items-center gap-1.5"><i class="fa-solid fa-wifi"></i> /ping</div>
-                <p class="text-[11px] text-gray-400">Vérifiez la vitesse de réponse et la latence API du bot.</p>
-                <button onclick="runCommand('ping')" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 rounded text-xs transition cursor-pointer">Exécuter /ping</button>
+                <div class="font-bold text-blue-400 text-xs">/ping</div>
+                <button onclick="executeBotCommand('ping')" class="w-full bg-blue-600 text-white font-bold py-2 rounded text-xs cursor-pointer">Tester /ping</button>
               </div>
-
-              <!-- /infos-serveur -->
               <div class="bg-discord-inputBg p-4 rounded-xl border border-gray-800 space-y-3">
-                <div class="font-bold text-blue-400 text-xs flex items-center gap-1.5"><i class="fa-solid fa-server"></i> /infos-serveur</div>
+                <div class="font-bold text-blue-400 text-xs">/infos-serveur</div>
                 <div>
-                  <label class="block text-[11px] text-gray-400 mb-1">Salon où afficher l'embed :</label>
+                  <label class="block text-[11px] text-gray-400 mb-1">Salon cible :</label>
+                  <input type="text" placeholder="🔍 Rechercher un salon..." oninput="filterChannels(this, 'info-channel-select')" class="w-full bg-discord-cardBg border border-gray-700 rounded p-1.5 text-xs text-white mb-1">
                   <select id="info-channel-select" class="guild-channels-dropdown w-full bg-discord-cardBg border border-gray-700 rounded p-2 text-xs text-white">
                     <option value="">-- Sélectionnez un salon --</option>
                   </select>
                 </div>
-                <button onclick="runCommand('infos-serveur')" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 rounded text-xs transition cursor-pointer">Afficher les stats serveur</button>
+                <button onclick="executeBotCommand('infos-serveur')" class="w-full bg-blue-600 text-white font-bold py-2 rounded text-xs cursor-pointer">Afficher stats</button>
               </div>
-
             </div>
           </div>
 
+        </div>
+      </section>
+
+      <!-- TAB 3: CONFIGURATION DU TOKEN BOT -->
+      <section id="tab-settings" class="tab-content hidden space-y-4">
+        <div class="bg-discord-cardBg p-6 rounded-xl border border-gray-800 space-y-4">
+          <h3 class="text-lg font-bold text-white flex items-center gap-2">
+            <i class="fa-solid fa-key text-discord-blurple"></i> Configuration du Token Bot Discord
+          </h3>
+          <p class="text-xs text-gray-400">
+            Pour que le dashboard puisse exécuter réellement les commandes sur votre serveur Discord (envoi de messages, bannissements, création de salons), il faut renseigner le <b>Token de votre Bot Discord</b> (provenant du Discord Developer Portal).
+          </p>
+          <div class="space-y-2">
+            <label class="block text-xs font-medium text-gray-300">Token Bot Secret</label>
+            <input type="password" id="bot-token-input" placeholder="MTE2MzI4... (Votre token secret)" class="w-full bg-discord-inputBg border border-gray-700 rounded-lg p-3 text-xs text-white font-mono">
+          </div>
+          <button onclick="saveBotToken()" class="bg-discord-blurple hover:bg-opacity-80 text-white font-bold px-6 py-2.5 rounded-lg text-xs transition cursor-pointer">
+            Sauvegarder le Token Bot
+          </button>
+          <div id="token-status" class="text-xs font-semibold text-discord-green hidden">
+            ✓ Token enregistré avec succès ! Le bot est prêt à exécuter les actions.
+          </div>
         </div>
       </section>
 

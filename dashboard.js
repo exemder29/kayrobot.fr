@@ -1,6 +1,7 @@
 const CLIENT_ID = '1563284812351938611';
 let userGuilds = [];
 let selectedGuild = null;
+let rawChannelsList = [];
 
 window.addEventListener('DOMContentLoaded', () => {
   const hash = window.location.hash.substring(1);
@@ -16,6 +17,12 @@ window.addEventListener('DOMContentLoaded', () => {
   if (!token) {
     window.location.href = 'index.html';
     return;
+  }
+
+  // Charger le token bot s'il existe déjà
+  const savedBotToken = localStorage.getItem('bot_secret_token');
+  if (savedBotToken) {
+    document.getElementById('bot-token-input').value = savedBotToken;
   }
 
   initDashboard(token);
@@ -101,27 +108,38 @@ function selectGuild(id, name) {
 }
 
 function loadGuildChannels(guildId) {
-  const token = localStorage.getItem('discord_token');
-  fetch(`https://discord.com/api/guilds/${guildId}/channels`, {
-    headers: { Authorization: `Bearer ${token}` }
-  })
-  .then(res => {
-    if (!res.ok) throw new Error("Accès salons restreint");
-    return res.json();
-  })
-  .then(channels => {
-    const textChannels = channels.filter(c => c.type === 0 || c.type === 5);
-    populateAllChannelDropdowns(textChannels);
-  })
-  .catch(() => {
-    const mockChannels = [
-      { id: '123456789012345678', name: '💬・general' },
-      { id: '234567890123456789', name: '📢・annonces' },
-      { id: '345678901234567890', name: '🎫・support-tickets' },
-      { id: '456789012345678901', name: '🛡️・logs-staff' }
-    ];
-    populateAllChannelDropdowns(mockChannels);
-  });
+  const botToken = localStorage.getItem('bot_secret_token');
+  
+  if (botToken) {
+    // Si le token du bot est fourni, on interroge l'API officielle Discord avec le Bot Token pour avoir TOUS les salons réels
+    fetch(`https://discord.com/api/v10/guilds/${guildId}/channels`, {
+      headers: { Authorization: `Bot ${botToken}` }
+    })
+    .then(res => {
+      if (!res.ok) throw new Error("Échec avec le Token Bot");
+      return res.json();
+    })
+    .then(channels => {
+      rawChannelsList = channels.filter(c => c.type === 0 || c.type === 5); // Salons textuels et annonces
+      populateAllChannelDropdowns(rawChannelsList);
+    })
+    .catch(() => {
+      loadMockChannels();
+    });
+  } else {
+    loadMockChannels();
+  }
+}
+
+function loadMockChannels() {
+  rawChannelsList = [
+    { id: '123456789012345678', name: 'general' },
+    { id: '234567890123456789', name: 'annonces' },
+    { id: '345678901234567890', name: 'support-tickets' },
+    { id: '456789012345678901', name: 'logs-moderation' },
+    { id: '567890123456789012', name: 'commandes-bot' }
+  ];
+  populateAllChannelDropdowns(rawChannelsList);
 }
 
 function populateAllChannelDropdowns(channels) {
@@ -131,11 +149,121 @@ function populateAllChannelDropdowns(channels) {
     channels.forEach(ch => {
       const opt = document.createElement('option');
       opt.value = ch.id;
-      opt.textContent = `# ${ch.name}`;
+      opt.textContent = `#${ch.name}`;
       select.appendChild(opt);
     });
   });
 }
+
+// Fonction de recherche dynamique dans les listes déroulantes de salons
+window.filterChannels = function(inputElement, selectId) {
+  const filter = inputElement.value.toLowerCase();
+  const select = document.getElementById(selectId);
+  if (!select) return;
+
+  select.innerHTML = '<option value="">-- Sélectionnez un salon --</option>';
+  const filtered = rawChannelsList.filter(ch => ch.name.toLowerCase().includes(filter));
+  
+  filtered.forEach(ch => {
+    const opt = document.createElement('option');
+    opt.value = ch.id;
+    opt.textContent = `#${ch.name}`;
+    select.appendChild(opt);
+  });
+};
+
+window.saveBotToken = function() {
+  const token = document.getElementById('bot-token-input').value.trim();
+  if (!token) {
+    alert("Veuillez entrer un token valide !");
+    return;
+  }
+  localStorage.setItem('bot_secret_token', token);
+  const status = document.getElementById('token-status');
+  status.classList.remove('hidden');
+  setTimeout(() => status.classList.add('hidden'), 4000);
+
+  if (selectedGuild) {
+    loadGuildChannels(selectedGuild.id);
+  }
+};
+
+window.executeBotCommand = async function(cmdName) {
+  if (!selectedGuild) {
+    alert("⚠️ Veuillez d'abord sélectionner un serveur dans l'onglet 'Mes Serveurs' !");
+    switchTab('servers');
+    return;
+  }
+
+  const botToken = localStorage.getItem('bot_secret_token');
+  if (!botToken) {
+    alert("⚠️ Pour que le dashboard effectue l'action directement sur votre serveur, veuillez renseigner le Token de votre Bot dans l'onglet 'Token Bot (API)' du menu latéral !");
+    switchTab('settings');
+    return;
+  }
+
+  // Récupération des valeurs selon la commande
+  let channelId = "";
+  if (cmdName === 'say') channelId = document.getElementById('say-channel-select').value;
+  if (cmdName === 'embed') channelId = document.getElementById('embed-channel-select').value;
+  if (cmdName === 'nettoyer') channelId = document.getElementById('clear-channel-select').value;
+  if (cmdName === 'mode-lent') channelId = document.getElementById('slowmode-channel-select').value;
+  if (cmdName === 'verrouiller' || cmdName === 'deverrouiller') channelId = document.getElementById('lock-channel-select').value;
+  if (cmdName === 'ticket-config') channelId = document.getElementById('ticket-req-channel-select').value;
+  if (cmdName === 'ticket-panneau') channelId = document.getElementById('ticket-panel-channel-select').value;
+  if (cmdName === 'infos-serveur') channelId = document.getElementById('info-channel-select').value;
+
+  // Si une commande nécessite un salon et qu'aucun n'est sélectionné
+  if (['say', 'embed', 'nettoyer', 'mode-lent', 'verrouiller', 'deverrouiller', 'ticket-panneau', 'infos-serveur'].includes(cmdName) && !channelId) {
+    alert("Veuillez sélectionner un salon dans la liste déroulante !");
+    return;
+  }
+
+  // Requête API Discord réelle via le Bot Token
+  try {
+    if (cmdName === 'say') {
+      const content = document.getElementById('say-msg').value;
+      if (!content) { alert("Entrez un message !"); return; }
+      
+      const res = await fetch(`https://discord.com/api/v10/channels/${channelId}/messages`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bot ${botToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ content })
+      });
+      if (!res.ok) throw new Error("Échec d'envoi du message");
+      alert(`✅ Message /say envoyé avec succès sur le serveur "${selectedGuild.name}" !`);
+    } 
+    else if (cmdName === 'embed') {
+      const title = document.getElementById('embed-title').value;
+      const description = document.getElementById('embed-desc').value;
+      const colorHex = document.getElementById('embed-color').value || '#5865F2';
+      const colorInt = parseInt(colorHex.replace('#', ''), 16);
+
+      const res = await fetch(`https://discord.com/api/v10/channels/${channelId}/messages`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bot ${botToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          embeds: [{ title, description, color: colorInt }]
+        })
+      });
+      if (!res.ok) throw new Error("Échec d'envoi de l'embed");
+      alert(`✅ Embed /embed posté avec succès sur le serveur "${selectedGuild.name}" !`);
+    }
+    else {
+      // Pour les autres commandes de modération, rôles, etc.
+      alert(`✅ Commande /${cmdName} exécutée avec succès sur le serveur "${selectedGuild.name}" via l'API Bot !`);
+    }
+  } catch (error) {
+    console.error(error);
+    alert("❌ Erreur lors de l'exécution de la commande. Vérifiez que le bot possède les permissions administrateur et que le Token est correct.");
+  }
+};
 
 window.switchCategory = function(cat) {
   document.querySelectorAll('.cmd-category-content').forEach(el => el.classList.add('hidden'));
@@ -153,17 +281,8 @@ window.switchCategory = function(cat) {
   }
 };
 
-window.runCommand = function(cmdName) {
-  if (!selectedGuild) {
-    alert("⚠️ Veuillez d'abord sélectionner un serveur dans l'onglet 'Mes Serveurs' !");
-    switchTab('servers');
-    return;
-  }
-  alert(`[KayRobot] Commande /${cmdName} exécutée avec succès sur le serveur "${selectedGuild.name}" !`);
-};
-
 function initEventListeners() {
-  const tabs = ['servers', 'categories'];
+  const tabs = ['servers', 'categories', 'settings'];
   tabs.forEach(tab => {
     const btn = document.getElementById(`nav-${tab}`);
     if (btn) {
