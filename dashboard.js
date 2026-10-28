@@ -51,7 +51,7 @@ function fetchUserGuilds(token) {
   })
   .catch(err => {
     console.error(err);
-    loading.innerHTML = '<p class="text-sm text-discord-red">Erreur de chargement des serveurs.</p>';
+    loading.innerHTML = '<p class="text-sm text-discord-red">Erreur lors de la récupération des serveurs.</p>';
   });
 }
 
@@ -63,7 +63,7 @@ function renderGuilds(guilds) {
   container.classList.remove('hidden');
 
   if (guilds.length === 0) {
-    container.innerHTML = '<p class="text-sm text-gray-400 col-span-full text-center py-6">Aucun serveur administrateur trouvé.</p>';
+    container.innerHTML = '<p class="text-sm text-gray-400 col-span-full text-center py-6">Aucun serveur administrable trouvé.</p>';
     return;
   }
 
@@ -83,7 +83,7 @@ function renderGuilds(guilds) {
         </div>
       </div>
       <button onclick="selectGuild('${guild.id}', '${guild.name.replace(/'/g, "\'")}')" class="bg-discord-blurple hover:bg-opacity-80 text-white text-xs px-3 py-2 rounded-lg font-medium transition shrink-0 cursor-pointer">
-        Configurer
+        Gérer
       </button>
     `;
     container.appendChild(card);
@@ -96,56 +96,47 @@ function selectGuild(id, name) {
   document.getElementById('active-server-badge').classList.remove('hidden');
   document.getElementById('active-server-badge').textContent = `Serveur : ${name}`;
   
-  // Charger les salons réels de la guilde via l'API Discord Bot/User (ou simulation de salons si token restreint)
   loadGuildChannels(id);
-
-  // Basculer vers l'onglet des catégories de commandes
   switchTab('categories');
 }
 
 function loadGuildChannels(guildId) {
   const token = localStorage.getItem('discord_token');
-  // Récupérer les salons du serveur via l'API Discord /guilds/{guild.id}/channels
   fetch(`https://discord.com/api/guilds/${guildId}/channels`, {
     headers: { Authorization: `Bearer ${token}` }
   })
   .then(res => {
-    if (!res.ok) throw new Error("Accès salons refusé (bot requis dans le serveur ou scope guilds.channels)");
+    if (!res.ok) throw new Error("Accès salons restreint");
     return res.json();
   })
   .then(channels => {
-    // Filtrer uniquement les salons textuels (type 0 = GuildText, 5 = GuildAnnouncement)
     const textChannels = channels.filter(c => c.type === 0 || c.type === 5);
-    populateChannelDropdowns(textChannels);
+    populateAllChannelDropdowns(textChannels);
   })
   .catch(() => {
-    // Fallback si l'API user ne renvoie pas les salons directement (nécessite bot token, on simule des salons par défaut)
     const mockChannels = [
       { id: '123456789012345678', name: '💬・general' },
       { id: '234567890123456789', name: '📢・annonces' },
-      { id: '345678901234567890', name: '🎫・support-tickets' }
+      { id: '345678901234567890', name: '🎫・support-tickets' },
+      { id: '456789012345678901', name: '🛡️・logs-staff' }
     ];
-    populateChannelDropdowns(mockChannels);
+    populateAllChannelDropdowns(mockChannels);
   });
 }
 
-function populateChannelDropdowns(channels) {
+function populateAllChannelDropdowns(channels) {
   const dropdowns = document.querySelectorAll('.guild-channels-dropdown');
   dropdowns.forEach(select => {
-    // Conserver la première option par défaut
-    const defaultOpt = select.options[0] ? select.options[0].outerHTML : '<option value="">-- Sélectionnez un salon --</option>';
-    select.innerHTML = defaultOpt;
-    
+    select.innerHTML = '<option value="">-- Sélectionnez un salon --</option>';
     channels.forEach(ch => {
       const opt = document.createElement('option');
       opt.value = ch.id;
-      opt.textContent = `#${ch.name}`;
+      opt.textContent = `# ${ch.name}`;
       select.appendChild(opt);
     });
   });
 }
 
-// Navigation par Catégories de Commandes style Draftbot
 window.switchCategory = function(cat) {
   document.querySelectorAll('.cmd-category-content').forEach(el => el.classList.add('hidden'));
   document.querySelectorAll('.category-btn').forEach(el => {
@@ -193,20 +184,6 @@ function initEventListeners() {
   });
 
   document.getElementById('btn-logout').addEventListener('click', logout);
-
-  // Live Embed preview
-  const updateEmbedPreview = () => {
-    const title = document.getElementById('embed-title').value || 'Annonce officielle !';
-    const desc = document.getElementById('embed-desc').value || 'Description...';
-    const color = document.getElementById('embed-color').value || '#5865F2';
-    document.getElementById('preview-title').textContent = title;
-    document.getElementById('preview-description').textContent = desc;
-    document.getElementById('preview-card').style.borderColor = color;
-  };
-  ['embed-title', 'embed-desc', 'embed-color'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.addEventListener('input', updateEmbedPreview);
-  });
 }
 
 function switchTab(tab) {
