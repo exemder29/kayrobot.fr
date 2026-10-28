@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>KayRobot - Connexion Discord</title>
+  <title>KayRobot - Connexion Dashboard</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
@@ -29,40 +29,35 @@
 <body class="bg-discord-darkBg text-gray-200 font-sans min-h-screen flex items-center justify-center p-4">
 
   <div class="bg-discord-cardBg border border-gray-800 p-8 rounded-2xl shadow-2xl max-w-md w-full text-center space-y-6">
-    <!-- Logo & Titre -->
     <div class="flex flex-col items-center space-y-3">
       <div class="w-16 h-16 rounded-full bg-discord-blurple flex items-center justify-center font-bold text-white text-2xl shadow-lg ring-4 ring-discord-blurple/30">
         K
       </div>
       <div>
-        <h1 class="text-2xl font-bold text-white">KayRobot Console</h1>
-        <p class="text-xs text-gray-400 mt-1">Identifiant Bot : 1563284812351938611</p>
+        <h1 class="text-2xl font-bold text-white">KayRobot Dashboard</h1>
+        <p class="text-xs text-gray-400 mt-1">Gérez vos serveurs et configurations style Draftbot</p>
       </div>
     </div>
 
-    <!-- Message de statut -->
     <div id="auth-status-msg" class="bg-discord-inputBg p-3 rounded-lg border border-gray-800 text-xs text-gray-400">
-      Connectez-vous avec votre compte Discord pour accéder à la console d'administration.
+      Connectez-vous via l'API Discord OAuth2 pour administrer vos serveurs.
     </div>
 
-    <!-- Bouton de connexion Discord -->
     <div class="space-y-3">
-      <button id="btn-login-discord" class="w-full bg-discord-blurple hover:bg-opacity-90 text-white font-bold py-3 px-4 rounded-xl transition duration-200 flex items-center justify-center space-x-2 shadow-lg">
+      <a id="btn-discord-login" href="https://discord.com/oauth2/authorize?client_id=1563284812351938611&redirect_uri=https%3A%2F%2Fexemder29.github.io%2Fkayrobot.fr%2Fdashboard.html&response_type=token&scope=identify%20guilds" class="w-full bg-discord-blurple hover:bg-opacity-90 text-white font-bold py-3 px-4 rounded-xl transition duration-200 flex items-center justify-center space-x-2 shadow-lg no-underline">
         <i class="fa-brands fa-discord text-xl"></i>
-        <span>Se connecter avec Discord</span>
-      </button>
+        <span>Connexion avec Discord</span>
+      </a>
     </div>
 
-    <!-- Info OAuth / Handler -->
     <div class="pt-4 border-t border-gray-800 text-left">
       <p class="text-[11px] text-gray-500 leading-relaxed">
-        <i class="fa-solid fa-shield-halved text-discord-blurple mr-1"></i>
-        Redirect URI Firebase Auth :<br>
-        <code class="text-discord-blurple select-all text-[10px] break-all">https://kayrobot-discord.firebaseapp.com/__/auth/handler</code>
+        <i class="fa-solid fa-link text-discord-blurple mr-1"></i>
+        Redirect URI configuré :<br>
+        <code class="text-discord-blurple select-all text-[10px] break-all">https://exemder29.github.io/kayrobot.fr/dashboard.html</code>
       </p>
     </div>
   </div>
 
-  <script type="module" src="login.js"></script>
 </body>
 </html>
