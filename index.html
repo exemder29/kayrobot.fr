@@ -39,24 +39,17 @@
       </div>
     </div>
 
-    <div id="auth-status" class="bg-discord-inputBg p-3 rounded-lg border border-gray-800 text-xs text-gray-400">
-      Connectez-vous avec votre compte Discord pour administrer vos serveurs.
-    </div>
-
     <div class="space-y-3">
-      <!-- Lien OAuth2 Discord pur avec scope identify guilds -->
-      <a href="https://discord.com/oauth2/authorize?client_id=1563284812351938611&redirect_uri=https%3A%2F%2Fexemder29.github.io%2Fkayrobot.fr%2Fdashboard.html&response_type=token&scope=identify%20guilds" class="w-full bg-discord-blurple hover:bg-opacity-90 text-white font-bold py-3 px-4 rounded-xl transition duration-200 flex items-center justify-center space-x-2 shadow-lg no-underline">
+      <a href="https://discord.com/oauth2/authorize?client_id=1563284812351938611&redirect_uri=https%3A%2F%2Fexemder29.github.io%2Fkayrobot.fr%2Fdashboard.html&response_type=token&scope=identify%20guilds" class="w-full bg-discord-blurple hover:bg-opacity-90 text-white font-bold py-3 px-4 rounded-xl transition duration-200 flex items-center justify-center space-x-2 shadow-lg no-underline cursor-pointer">
         <i class="fa-brands fa-discord text-xl"></i>
         <span>Connexion avec Discord</span>
       </a>
-    </div>
-
-    <div class="pt-4 border-t border-gray-800 text-left">
-      <p class="text-[11px] text-gray-500 leading-relaxed">
-        <i class="fa-solid fa-link text-discord-blurple mr-1"></i>
-        Redirect URI requis sur le Developer Portal :<br>
-        <code class="text-discord-blurple select-all text-[10px] break-all">https://exemder29.github.io/kayrobot.fr/dashboard.html</code>
-      </p>
+      
+      <!-- Bouton d'accès à l'Espace Admin sécurisé par Code -->
+      <a href="admin.html" class="w-full bg-discord-inputBg hover:bg-gray-800 text-gray-300 font-semibold py-2.5 px-4 rounded-xl transition duration-200 flex items-center justify-center space-x-2 border border-gray-700 text-xs no-underline cursor-pointer">
+        <i class="fa-solid fa-lock text-discord-blurple"></i>
+        <span>Espace Admin (Configuration Token)</span>
+      </a>
     </div>
   </div>
 

@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="fr" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KayRobot - Espace Admin</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            discord: {
+              blurple: '#5865F2',
+              green: '#57F287',
+              red: '#ED4245',
+              darkBg: '#313338',
+              cardBg: '#1E1F22',
+              inputBg: '#111214'
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="style.css">
+  
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+</head>
+<body class="bg-discord-darkBg text-gray-200 font-sans min-h-screen flex items-center justify-center p-4">
+
+  <!-- Modal / Écran de vérification du code Admin -->
+  <div id="auth-modal" class="bg-discord-cardBg border border-gray-800 p-8 rounded-2xl shadow-2xl max-w-md w-full text-center space-y-6">
+    <div class="w-14 h-14 bg-discord-blurple/20 text-discord-blurple rounded-full flex items-center justify-center mx-auto text-2xl border border-discord-blurple/40">
+      <i class="fa-solid fa-shield-halved"></i>
+    </div>
+    <div>
+      <h1 class="text-xl font-bold text-white">Espace Administrateur</h1>
+      <p class="text-xs text-gray-400 mt-1">Entrez le code d'accès administrateur pour configurer le token du bot.</p>
+    </div>
+
+    <div class="space-y-3">
+      <input type="password" id="admin-code-input" placeholder="Code secret admin..." class="w-full bg-discord-inputBg border border-gray-700 rounded-xl p-3 text-sm text-white text-center tracking-widest focus:outline-none focus:border-discord-blurple">
+      <button onclick="verifyAdminCode()" class="w-full bg-discord-blurple hover:bg-opacity-90 text-white font-bold py-3 rounded-xl text-xs transition cursor-pointer">
+        Vérifier le code
+      </button>
+      <a href="index.html" class="block text-xs text-gray-500 hover:underline pt-2">Retour à l'accueil</a>
+    </div>
+    <p id="auth-error" class="text-xs text-discord-red hidden">❌ Code administrateur incorrect.</p>
+  </div>
+
+  <!-- Panneau de Configuration Admin (Caché tant que le code n'est pas validé) -->
+  <div id="admin-panel" class="bg-discord-cardBg border border-gray-800 p-8 rounded-2xl shadow-2xl max-w-lg w-full space-y-6 hidden">
+    <div class="flex items-center justify-between border-b border-gray-800 pb-4">
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-full bg-discord-green/20 text-discord-green flex items-center justify-center">
+          <i class="fa-solid fa-key"></i>
+        </div>
+        <div>
+          <h2 class="font-bold text-white text-sm">Panneau de Configuration Sécurisé</h2>
+          <p class="text-[11px] text-discord-green">● Accès autorisé via Firestore</p>
+        </div>
+      </div>
+      <button onclick="logoutAdmin()" class="text-gray-400 hover:text-discord-red text-xs"><i class="fa-solid fa-right-from-bracket"></i> Verrouiller</button>
+    </div>
+
+    <div class="space-y-3">
+      <label class="block text-xs font-medium text-gray-300">Token du Bot Secret (stocké localement / sécurisé)</label>
+      <input type="password" id="admin-bot-token" placeholder="MTE2MzI4..." class="w-full bg-discord-inputBg border border-gray-700 rounded-xl p-3 text-xs text-white font-mono">
+      <p class="text-[10px] text-gray-500">Ce token permet au dashboard d'exécuter les commandes et d'envoyer des embeds sur vos serveurs Discord sans l'exposer dans le code source.</p>
+    </div>
+
+    <div class="flex gap-3">
+      <button onclick="saveToken()" class="flex-1 bg-discord-green hover:bg-opacity-80 text-black font-bold py-3 rounded-xl text-xs transition cursor-pointer">
+        Enregistrer le Token
+      </button>
+      <a href="dashboard.html" class="flex-1 bg-discord-blurple hover:bg-opacity-80 text-white font-bold py-3 rounded-xl text-xs transition text-center no-underline flex items-center justify-center">
+        Aller au Dashboard <i class="fa-solid fa-arrow-right ml-1.5"></i>
+      </a>
+    </div>
+    <div id="save-status" class="text-xs text-discord-green font-semibold text-center hidden">
+      ✓ Token enregistré avec succès !
+    </div>
+  </div>
+
+  <script src="admin.js"></script>
+</body>
+</html>
