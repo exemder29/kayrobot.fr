@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>KayRobot - Gestion des Serveurs</title>
+  <title>KayRobot - Dashboard Draftbot Style</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
@@ -32,103 +32,199 @@
 </head>
 <body class="bg-discord-darkBg text-gray-200 font-sans min-h-screen flex flex-col md:flex-row">
 
-  <!-- Sidebar / Liste des Serveurs (Style Draftbot) -->
+  <!-- Sidebar / Navigation -->
   <aside class="w-full md:w-64 bg-discord-sidebarBg flex-shrink-0 border-r border-gray-800 p-4 flex flex-col justify-between">
     <div>
-      <div class="flex items-center space-x-3 pb-6 border-b border-gray-700/50">
-        <div class="w-10 h-10 rounded-full bg-discord-blurple flex items-center justify-center font-bold text-white text-lg shadow-lg">
-          K
-        </div>
-        <div>
-          <h1 class="font-bold text-white text-sm leading-tight">KayRobot Manager</h1>
-          <p class="text-[10px] text-discord-green font-semibold">● Connecté via Discord</p>
+      <div class="flex items-center justify-between pb-4 border-b border-gray-700/50">
+        <div class="flex items-center space-x-3">
+          <div class="w-10 h-10 rounded-full bg-discord-blurple flex items-center justify-center font-bold text-white text-lg shadow-lg">
+            K
+          </div>
+          <div>
+            <h1 class="font-bold text-white text-sm leading-tight">KayRobot</h1>
+            <p id="selected-guild-label" class="text-[11px] text-discord-blurple font-medium truncate max-w-[130px]">Aucun serveur</p>
+          </div>
         </div>
       </div>
 
-      <!-- Navigation Modules Dashboard -->
+      <!-- Navigation Links -->
       <nav class="mt-6 space-y-1">
         <button onclick="switchTab('servers')" id="nav-servers" class="nav-btn active w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-sm font-medium transition">
           <i class="fa-solid fa-server w-5 text-center"></i>
           <span>Mes Serveurs</span>
         </button>
+        <button onclick="switchTab('commands')" id="nav-commands" class="nav-btn w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-sm font-medium transition">
+          <i class="fa-solid fa-terminal w-5 text-center"></i>
+          <span>Panneau Commandes</span>
+        </button>
         <button onclick="switchTab('embed')" id="nav-embed" class="nav-btn w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-sm font-medium transition">
           <i class="fa-solid fa-paper-plane w-5 text-center"></i>
           <span>Créateur d'Embeds</span>
         </button>
-        <button onclick="switchTab('modules')" id="nav-modules" class="nav-btn w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-sm font-medium transition">
-          <i class="fa-solid fa-puzzle-piece w-5 text-center"></i>
-          <span>Modules (AutoMod, etc.)</span>
+        <button onclick="switchTab('tickets')" id="nav-tickets" class="nav-btn w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-sm font-medium transition">
+          <i class="fa-solid fa-ticket w-5 text-center"></i>
+          <span>Système Tickets</span>
         </button>
       </nav>
     </div>
 
-    <div class="pt-4 border-t border-gray-700/50">
-      <button onclick="logout()" class="w-full bg-discord-red/20 hover:bg-discord-red hover:text-white text-discord-red text-xs p-2.5 rounded-lg transition font-medium flex items-center justify-center gap-2">
-        <i class="fa-solid fa-right-from-bracket"></i>
-        <span>Déconnexion</span>
-      </button>
+    <!-- User Profile & Add Bot Button -->
+    <div class="pt-4 border-t border-gray-700/50 space-y-3">
+      <a href="https://discord.com/oauth2/authorize?client_id=1563284812351938611&permissions=8&integration_type=0&scope=bot+applications.commands" target="_blank" class="w-full bg-discord-green hover:bg-opacity-80 text-black font-bold py-2.5 px-3 rounded-xl text-xs transition flex items-center justify-center space-x-2 no-underline shadow">
+        <i class="fa-solid fa-plus-circle text-base"></i>
+        <span>Ajouter le bot à un serveur</span>
+      </a>
+
+      <div class="flex items-center justify-between bg-discord-cardBg p-2.5 rounded-lg border border-gray-800">
+        <div class="flex items-center space-x-2 min-w-0">
+          <img id="user-avatar" class="w-7 h-7 rounded-full bg-discord-blurple" src="https://cdn.discordapp.com/embed/avatars/0.png" alt="Avatar">
+          <span class="text-xs text-gray-200 font-medium truncate" id="user-display-name">Chargement...</span>
+        </div>
+        <button onclick="logout()" class="text-gray-400 hover:text-discord-red text-xs p-1 transition" title="Déconnexion">
+          <i class="fa-solid fa-right-from-bracket"></i>
+        </button>
+      </div>
     </div>
   </aside>
 
-  <!-- Contenu Principal -->
+  <!-- Main Content Area -->
   <main class="flex-1 flex flex-col min-w-0 overflow-hidden">
     <header class="bg-discord-sidebarBg/50 backdrop-blur border-b border-gray-800 p-4 flex items-center justify-between">
-      <h2 id="page-title" class="text-xl font-bold text-white">Sélectionnez un Serveur</h2>
-      <div id="user-info" class="text-xs text-gray-400">Authentification Discord active</div>
+      <h2 id="page-title" class="text-lg font-bold text-white flex items-center gap-2">
+        <i class="fa-solid fa-server text-discord-blurple"></i>
+        Sélectionnez un Serveur
+      </h2>
+      <div id="active-server-badge" class="hidden bg-discord-blurple/20 text-discord-blurple border border-discord-blurple/40 text-xs px-3 py-1 rounded-full font-semibold">
+        Serveur sélectionné
+      </div>
     </header>
 
     <div class="flex-1 overflow-y-auto p-4 md:p-6 space-y-6">
 
-      <!-- SECTION 1: SERVEURS -->
+      <!-- TAB 1: SELECTION DES SERVEURS -->
       <section id="tab-servers" class="tab-content space-y-4">
-        <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">Serveurs administrables par vous</h3>
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="guilds-container">
-          <!-- Exemple de carte serveur style Draftbot -->
-          <div class="bg-discord-cardBg border border-gray-800 p-4 rounded-xl flex items-center justify-between">
-            <div class="flex items-center space-x-3">
-              <div class="w-12 h-12 rounded-full bg-discord-blurple/30 flex items-center justify-center text-white font-bold text-lg">
-                <i class="fa-solid fa-shield"></i>
+        <div class="flex items-center justify-between">
+          <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">Vos serveurs autorisés</h3>
+          <button onclick="reloadGuilds()" class="text-xs text-discord-blurple hover:underline flex items-center gap-1">
+            <i class="fa-solid fa-arrows-rotate"></i> Actualiser la liste
+          </button>
+        </div>
+        <div id="guilds-loading" class="text-center py-10 text-gray-400 text-sm">
+          <i class="fa-solid fa-circle-notch fa-spin text-2xl text-discord-blurple mb-2"></i>
+          <p>Détection automatique des serveurs Discord avec le bot KayRobot...</p>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 hidden" id="guilds-container"></div>
+      </section>
+
+      <!-- TAB 2: EXECUTION DE COMMANDES -->
+      <section id="tab-commands" class="tab-content hidden space-y-6">
+        <div class="bg-discord-cardBg p-5 rounded-xl border border-gray-800">
+          <h3 class="text-base font-bold text-white mb-2 flex items-center gap-2">
+            <i class="fa-solid fa-terminal text-discord-blurple"></i>
+            Panneau de Contrôle des Commandes Bot
+          </h3>
+          <p class="text-xs text-gray-400 mb-6">Exécutez directement les commandes slash du bot sur le serveur sélectionné sans passer par Discord.</p>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+
+            <!-- Commande /say -->
+            <div class="bg-discord-inputBg p-4 rounded-xl border border-gray-800 space-y-3">
+              <div class="font-bold text-discord-blurple text-sm flex items-center gap-2">
+                <i class="fa-solid fa-comment"></i> /say
               </div>
-              <div>
-                <h4 class="font-bold text-white">Mon Super Serveur</h4>
-                <p class="text-xs text-discord-green">Bot présent ✓</p>
-              </div>
+              <p class="text-xs text-gray-400">Fait parler le bot dans un salon spécifique.</p>
+              <input type="text" id="say-channel" placeholder="ID du Salon (ex: 123456...)" class="w-full bg-discord-cardBg border border-gray-700 rounded-lg p-2 text-xs text-white">
+              <textarea id="say-msg" placeholder="Message à envoyer..." class="w-full bg-discord-cardBg border border-gray-700 rounded-lg p-2 text-xs text-white" rows="2"></textarea>
+              <button onclick="execCmd('say')" class="w-full bg-discord-blurple hover:bg-opacity-80 text-white font-semibold text-xs py-2 rounded-lg transition">Envoyer /say</button>
             </div>
-            <button onclick="selectGuild('Mon Super Serveur')" class="bg-discord-blurple hover:bg-opacity-80 text-white text-xs px-3 py-2 rounded-lg font-medium transition">
-              Configurer
-            </button>
+
+            <!-- Commande /sourdine -->
+            <div class="bg-discord-inputBg p-4 rounded-xl border border-gray-800 space-y-3">
+              <div class="font-bold text-discord-yellow text-sm flex items-center gap-2">
+                <i class="fa-solid fa-volume-xmark"></i> /sourdine
+              </div>
+              <p class="text-xs text-gray-400">Rendre muet un membre temporairement.</p>
+              <input type="text" id="timeout-user" placeholder="ID du Membre" class="w-full bg-discord-cardBg border border-gray-700 rounded-lg p-2 text-xs text-white">
+              <input type="number" id="timeout-min" placeholder="Durée en minutes" class="w-full bg-discord-cardBg border border-gray-700 rounded-lg p-2 text-xs text-white">
+              <input type="text" id="timeout-reason" placeholder="Raison..." class="w-full bg-discord-cardBg border border-gray-700 rounded-lg p-2 text-xs text-white">
+              <button onclick="execCmd('sourdine')" class="w-full bg-discord-yellow hover:bg-opacity-80 text-black font-semibold text-xs py-2 rounded-lg transition">Appliquer /sourdine</button>
+            </div>
+
+            <!-- Commande /bannir -->
+            <div class="bg-discord-inputBg p-4 rounded-xl border border-gray-800 space-y-3">
+              <div class="font-bold text-discord-red text-sm flex items-center gap-2">
+                <i class="fa-solid fa-hammer"></i> /bannir
+              </div>
+              <p class="text-xs text-gray-400">Bannir un membre du serveur.</p>
+              <input type="text" id="ban-user" placeholder="ID du Membre à bannir" class="w-full bg-discord-cardBg border border-gray-700 rounded-lg p-2 text-xs text-white">
+              <input type="text" id="ban-reason" placeholder="Raison du bannissement" class="w-full bg-discord-cardBg border border-gray-700 rounded-lg p-2 text-xs text-white">
+              <button onclick="execCmd('bannir')" class="w-full bg-discord-red hover:bg-opacity-80 text-white font-semibold text-xs py-2 rounded-lg transition">Exécuter /bannir</button>
+            </div>
+
+            <!-- Commande /serveur (Auto-setup) -->
+            <div class="bg-discord-inputBg p-4 rounded-xl border border-gray-800 space-y-3">
+              <div class="font-bold text-discord-green text-sm flex items-center gap-2">
+                <i class="fa-solid fa-wand-magic-sparkles"></i> /serveur
+              </div>
+              <p class="text-xs text-gray-400">Génère automatiquement toute la structure des salons & catégories.</p>
+              <button onclick="execCmd('serveur')" class="w-full bg-discord-green hover:bg-opacity-80 text-black font-semibold text-xs py-2 rounded-lg transition">Générer la structure (/serveur)</button>
+            </div>
+
+            <!-- Commande /mode-lent -->
+            <div class="bg-discord-inputBg p-4 rounded-xl border border-gray-800 space-y-3">
+              <div class="font-bold text-discord-fuchsia text-sm flex items-center gap-2">
+                <i class="fa-solid fa-gauge-simple-high"></i> /mode-lent
+              </div>
+              <p class="text-xs text-gray-400">Délai entre deux messages dans un salon.</p>
+              <input type="number" id="slowmode-sec" placeholder="Secondes (0 pour désactiver)" class="w-full bg-discord-cardBg border border-gray-700 rounded-lg p-2 text-xs text-white">
+              <button onclick="execCmd('mode-lent')" class="w-full bg-discord-fuchsia hover:bg-opacity-80 text-white font-semibold text-xs py-2 rounded-lg transition">Régler /mode-lent</button>
+            </div>
+
+            <!-- Commande /nettoyer -->
+            <div class="bg-discord-inputBg p-4 rounded-xl border border-gray-800 space-y-3">
+              <div class="font-bold text-gray-300 text-sm flex items-center gap-2">
+                <i class="fa-solid fa-broom"></i> /nettoyer
+              </div>
+              <p class="text-xs text-gray-400">Purger un nombre de messages dans le salon.</p>
+              <input type="number" id="clear-count" placeholder="Nombre de messages (1-100)" class="w-full bg-discord-cardBg border border-gray-700 rounded-lg p-2 text-xs text-white">
+              <button onclick="execCmd('nettoyer')" class="w-full bg-gray-700 hover:bg-gray-600 text-white font-semibold text-xs py-2 rounded-lg transition">Purger /nettoyer</button>
+            </div>
+
           </div>
         </div>
       </section>
 
-      <!-- SECTION 2: EMBED CREATOR -->
+      <!-- TAB 3: GENERATEUR EMBEDS -->
       <section id="tab-embed" class="tab-content hidden grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div class="bg-discord-cardBg p-6 rounded-xl border border-gray-800 space-y-4">
-          <h3 class="text-lg font-bold text-white flex items-center gap-2">
+          <h3 class="text-base font-bold text-white flex items-center gap-2">
             <i class="fa-solid fa-pen-to-square text-discord-blurple"></i>
-            Éditeur d'Embed Draftbot-like
+            Créateur d'Embed (/embed)
           </h3>
           <div>
-            <label class="block text-xs font-medium text-gray-400 mb-1">ID du Salon</label>
+            <label class="block text-xs font-medium text-gray-400 mb-1">ID du Salon Discord</label>
             <input type="text" id="embed-channel" placeholder="123456789012345678" class="w-full bg-discord-inputBg border border-gray-700 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-discord-blurple">
           </div>
           <div>
-            <label class="block text-xs font-medium text-gray-400 mb-1">Titre</label>
-            <input type="text" id="embed-title" oninput="updatePreview()" placeholder="Titre de l'embed" class="w-full bg-discord-inputBg border border-gray-700 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-discord-blurple">
+            <label class="block text-xs font-medium text-gray-400 mb-1">Titre de l'Embed</label>
+            <input type="text" id="embed-title" placeholder="Annonce officielle !" class="w-full bg-discord-inputBg border border-gray-700 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-discord-blurple">
           </div>
           <div>
-            <label class="block text-xs font-medium text-gray-400 mb-1">Description</label>
-            <textarea id="embed-desc" oninput="updatePreview()" rows="4" placeholder="Contenu du message..." class="w-full bg-discord-inputBg border border-gray-700 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-discord-blurple"></textarea>
+            <label class="block text-xs font-medium text-gray-400 mb-1">Contenu / Description</label>
+            <textarea id="embed-description" rows="4" placeholder="Tapez le contenu de votre message..." class="w-full bg-discord-inputBg border border-gray-700 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-discord-blurple"></textarea>
           </div>
           <div>
             <label class="block text-xs font-medium text-gray-400 mb-1">Couleur</label>
-            <input type="color" id="embed-color" oninput="updatePreview()" value="#5865F2" class="w-full h-10 bg-discord-inputBg border border-gray-700 rounded-lg cursor-pointer">
+            <input type="color" id="embed-color" value="#5865F2" class="w-full h-10 bg-discord-inputBg border border-gray-700 rounded-lg cursor-pointer">
           </div>
-          <button onclick="alert('Embed envoyé avec succès !')" class="w-full bg-discord-green text-black font-bold py-2.5 rounded-lg">Envoyer l'Embed</button>
+          <button onclick="execCmd('embed')" class="w-full bg-discord-green hover:bg-opacity-80 text-black font-bold py-2.5 rounded-lg transition flex items-center justify-center gap-2">
+            <i class="fa-solid fa-paper-plane"></i>
+            Envoyer l'Embed
+          </button>
         </div>
 
         <div class="bg-discord-cardBg p-6 rounded-xl border border-gray-800 space-y-3">
-          <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Aperçu en direct</h3>
+          <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Aperçu du rendu Discord</h3>
           <div class="bg-discord-darkBg p-4 rounded-lg flex items-start space-x-3">
             <div class="w-10 h-10 rounded-full bg-discord-blurple flex items-center justify-center font-bold text-white shrink-0">K</div>
             <div class="flex-1">
@@ -136,26 +232,36 @@
                 <span class="font-bold text-white text-sm">KayRobot</span>
                 <span class="bg-discord-blurple text-white text-[10px] px-1 rounded uppercase font-semibold">BOT</span>
               </div>
-              <div id="preview-box" class="mt-2 bg-discord-sidebarBg border-l-4 rounded-r p-3 space-y-1" style="border-color: #5865F2;">
-                <div id="prev-title" class="font-bold text-white text-sm">Titre de l'embed</div>
-                <div id="prev-desc" class="text-xs text-gray-300 whitespace-pre-wrap">Contenu du message...</div>
+              <div id="preview-card" class="mt-2 bg-discord-sidebarBg border-l-4 rounded-r p-3 space-y-1" style="border-color: #5865F2;">
+                <div id="preview-title" class="font-bold text-white text-sm">Annonce officielle !</div>
+                <div id="preview-description" class="text-xs text-gray-300 leading-relaxed whitespace-pre-wrap">Tapez le contenu de votre message...</div>
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      <!-- SECTION 3: MODULES -->
-      <section id="tab-modules" class="tab-content hidden space-y-4">
+      <!-- TAB 4: TICKETS -->
+      <section id="tab-tickets" class="tab-content hidden space-y-4">
         <div class="bg-discord-cardBg p-6 rounded-xl border border-gray-800 space-y-4">
-          <h3 class="text-lg font-bold text-white">Modules Actifs</h3>
-          <div class="flex items-center justify-between p-3 bg-discord-inputBg rounded-lg border border-gray-800">
+          <h3 class="text-lg font-bold text-white flex items-center gap-2">
+            <i class="fa-solid fa-ticket text-discord-blurple"></i>
+            Configuration des Tickets (/ticket)
+          </h3>
+          <p class="text-xs text-gray-400">Configurez le panneau de support et d'assistance pour le serveur sélectionné.</p>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <div class="font-semibold text-white">Anti-Spam & Liens</div>
-              <div class="text-xs text-gray-400">Bloque les liens suspects et le spam en masse.</div>
+              <label class="block text-xs font-medium text-gray-400 mb-1">ID Salon des Demandes Staff</label>
+              <input type="text" id="ticket-req-channel" placeholder="Salon privé du staff" class="w-full bg-discord-inputBg border border-gray-700 rounded-lg p-2.5 text-sm text-white">
             </div>
-            <input type="checkbox" checked class="w-5 h-5 accent-discord-blurple cursor-pointer">
+            <div>
+              <label class="block text-xs font-medium text-gray-400 mb-1">ID Rôle Staff</label>
+              <input type="text" id="ticket-staff-role" placeholder="Rôle équipe modération" class="w-full bg-discord-inputBg border border-gray-700 rounded-lg p-2.5 text-sm text-white">
+            </div>
           </div>
+          <button onclick="execCmd('ticket-config')" class="bg-discord-blurple hover:bg-opacity-80 text-white font-bold px-6 py-2 rounded-lg text-xs transition">
+            Sauvegarder la Config Tickets
+          </button>
         </div>
       </section>
 
