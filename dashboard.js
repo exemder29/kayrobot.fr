@@ -176,7 +176,9 @@ async function checkProxy() {
     el.querySelector('pre').textContent =
       `Longueur du token : ${d.longueur} (attendu : environ 70)\n` +
       `Morceaux séparés par des points : ${d.morceaux} (attendu : 3)\n` +
-      `ID du bot dans le token : ${d.idDansLeToken || '(illisible)'}\n` +
+      `Longueur de chaque morceau : ${(d.longueurs || []).join(' / ')} (attendu : 27 / 6 / 38 environ)\n` +
+      `Début du token (ID du bot encodé) : ${d.debutDuToken}\n` +
+      `ID du bot dans le token : ${d.idDansLeToken || '(illisible)'} (attendu : 1563284812351938611)\n` +
       `Réponse de Discord : ${d.discordStatus} ${d.discordMessage || ''}`;
   } catch (e) {
     el.innerHTML = '<span class="text-discord-red font-semibold">❌ Worker injoignable</span><pre class="mt-2 text-[11px] text-gray-400 whitespace-pre-wrap"></pre>';
@@ -241,6 +243,19 @@ async function discordRequest(method, path, body, reason) {
   try { return await res.json(); } catch (e) { return null; }
 }
 
+function modName() {
+  const el = document.getElementById('user-display-name');
+  return (el && el.textContent.trim()) || 'dashboard';
+}
+
+// Comme le bot : on prévient le membre en message privé (silencieux si ses MP sont fermés)
+async function tryDM(userId, content) {
+  try {
+    const dm = await discordRequest('POST', '/users/@me/channels', { recipient_id: userId });
+    await discordRequest('POST', `/channels/${dm.id}/messages`, { content });
+  } catch (e) { /* MP fermés : on ignore, comme le bot */ }
+}
+
 function val(id) {
   const el = document.getElementById(id);
   return el ? el.value.trim() : '';
@@ -297,7 +312,10 @@ window.executeBotCommand = async function(cmdName) {
       case 'say': {
         const content = val('say-msg');
         if (!content) throw new UserInputError('Entrez un message !');
-        await discordRequest('POST', `/channels/${channelId}/messages`, { content });
+        await discordRequest('POST', `/channels/${channelId}/messages`, {
+          content: content.replaceAll('\\n', '\n'),
+          allowed_mentions: { parse: [] }
+        });
         okMsg = '✅ Message envoyé !';
         break;
       }
@@ -308,7 +326,7 @@ window.executeBotCommand = async function(cmdName) {
         if (!title && !description) throw new UserInputError('Entrez au moins un titre ou une description.');
         const color = parseInt((val('embed-color') || '#5865F2').replace('#', ''), 16);
         await discordRequest('POST', `/channels/${channelId}/messages`, {
-          embeds: [{ title: title || undefined, description: description || undefined, color }]
+          embeds: [{ title: title || undefined, description: description ? description.replaceAll('\\n', '\n') : undefined, color }]
         });
         okMsg = '✅ Embed posté !';
         break;
@@ -319,7 +337,8 @@ window.executeBotCommand = async function(cmdName) {
         const days = parseInt(val('ban-delete-days') || '0', 10);
         const reason = val('ban-reason') || 'Aucune raison';
         if (!confirm(`Bannir le membre ${user} ?`)) return;
-        await discordRequest('PUT', `/guilds/${guildId}/bans/${user}`, { delete_message_seconds: days * 86400 }, reason);
+        await tryDM(user, `🔨 Tu as été **banni** de **${selectedGuild.name}**.\nRaison : ${val('ban-reason') || 'Aucune'}`);
+        await discordRequest('PUT', `/guilds/${guildId}/bans/${user}`, { delete_message_seconds: days * 86400 }, `${modName()} : ${reason}`);
         okMsg = `✅ Membre ${user} banni.`;
         break;
       }
@@ -333,7 +352,8 @@ window.executeBotCommand = async function(cmdName) {
         if (ms > 28 * 86400e3) throw new UserInputError('Discord limite la sourdine à 28 jours maximum.');
         const reason = val('timeout-reason') || 'Aucune raison';
         await discordRequest('PATCH', `/guilds/${guildId}/members/${user}`,
-          { communication_disabled_until: new Date(Date.now() + ms).toISOString() }, reason);
+          { communication_disabled_until: new Date(Date.now() + ms).toISOString() }, `${modName()} : ${reason}`);
+        await tryDM(user, `🔇 Tu as été mis en sourdine **${amount} ${({ m: 'min', h: 'h', d: 'j' })[val('timeout-unit')] || 'min'}** sur **${selectedGuild.name}**.\nRaison : ${val('timeout-reason') || 'Aucune'}`);
         okMsg = `✅ Membre ${user} mis en sourdine.`;
         break;
       }
@@ -342,25 +362,18 @@ window.executeBotCommand = async function(cmdName) {
         const user = requireSnowflake(val('kick-user'), 'ID du membre');
         const reason = val('kick-reason') || 'Aucune raison';
         if (!confirm(`Expulser le membre ${user} ?`)) return;
-        await discordRequest('DELETE', `/guilds/${guildId}/members/${user}`, undefined, reason);
+        await tryDM(user, `👢 Tu as été **expulsé** de **${selectedGuild.name}**.\nRaison : ${val('kick-reason') || 'Aucune'}`);
+        await discordRequest('DELETE', `/guilds/${guildId}/members/${user}`, undefined, `${modName()} : ${reason}`);
         okMsg = `✅ Membre ${user} expulsé.`;
         break;
       }
 
-      case 'avertir': {
-        const user = requireSnowflake(val('warn-user'), 'ID du membre');
-        const reason = val('warn-reason') || 'Aucune raison';
-        const dm = await discordRequest('POST', '/users/@me/channels', { recipient_id: user });
-        await discordRequest('POST', `/channels/${dm.id}/messages`, {
-          embeds: [{
-            title: '⚠️ Avertissement',
-            description: `Vous avez reçu un avertissement sur **${selectedGuild.name}**.\n**Raison :** ${reason}`,
-            color: 0xFEE75C
-          }]
-        });
-        okMsg = `✅ Avertissement envoyé en message privé à ${user}.`;
-        break;
-      }
+      case 'avertir':
+      case 'serveur':
+      case 'ticket-config':
+        // Ces commandes enregistrent des données dans les fichiers du bot (avertissements, structure créée, config tickets).
+        // Les faire depuis le site créerait des données que le bot ne verrait jamais.
+        throw new UserInputError(`/${cmdName} doit être lancée directement dans Discord avec le bot : il garde ses données (compteur d'avertissements, annulation, configuration des tickets) de son côté.`);
 
       case 'nettoyer': {
         const count = parseInt(val('clear-count'), 10);
@@ -407,25 +420,6 @@ window.executeBotCommand = async function(cmdName) {
         break;
       }
 
-      case 'serveur': {
-        if (!confirm('Créer la structure par défaut (catégories + salons) sur ce serveur ?')) return;
-        const structure = [
-          { name: '📢 INFORMATIONS', channels: ['règlement', 'annonces'] },
-          { name: '💬 COMMUNAUTÉ', channels: ['général', 'commandes-bot'] },
-          { name: '🎫 SUPPORT', channels: ['support-tickets'] },
-          { name: '🛡️ STAFF', channels: ['logs-moderation'] }
-        ];
-        for (const cat of structure) {
-          const category = await discordRequest('POST', `/guilds/${guildId}/channels`, { name: cat.name, type: 4 });
-          for (const ch of cat.channels) {
-            await discordRequest('POST', `/guilds/${guildId}/channels`, { name: ch, type: 0, parent_id: category.id });
-          }
-        }
-        okMsg = '✅ Structure du serveur créée.';
-        loadGuildChannels(guildId);
-        break;
-      }
-
       case 'role-creer': {
         const name = val('role-create-name');
         if (!name) throw new UserInputError('Entrez un nom de rôle.');
@@ -445,15 +439,6 @@ window.executeBotCommand = async function(cmdName) {
         break;
       }
 
-      case 'ticket-config': {
-        const staffRole = val('ticket-staff-role');
-        if (staffRole) requireSnowflake(staffRole, 'ID du rôle staff');
-        // Pas de base de données côté dashboard : la config est gardée dans ce navigateur
-        localStorage.setItem(`ticket_config_${guildId}`, JSON.stringify({ requestChannel: channelId, staffRole }));
-        okMsg = '✅ Configuration des tickets enregistrée (dans ce navigateur).';
-        break;
-      }
-
       case 'ticket-panneau': {
         const title = val('ticket-panel-title') || '🎫 Support';
         await discordRequest('POST', `/channels/${channelId}/messages`, {
@@ -464,10 +449,10 @@ window.executeBotCommand = async function(cmdName) {
           }],
           components: [{
             type: 1,
-            components: [{ type: 2, style: 1, label: 'Ouvrir un ticket', emoji: { name: '🎫' }, custom_id: 'ticket_create' }]
+            components: [{ type: 2, style: 1, label: 'Ouvrir un ticket', emoji: { name: '🎫' }, custom_id: 'ticket:open' }]
           }]
         });
-        okMsg = '✅ Panneau de tickets posté (le bot doit gérer le bouton "ticket_create").';
+        okMsg = '✅ Panneau posté. Pour que les tickets marchent, le salon des demandes doit être configuré avec /ticket config dans Discord.';
         break;
       }
 
@@ -505,7 +490,11 @@ window.executeBotCommand = async function(cmdName) {
     if (error instanceof UserInputError) {
       alert(`⚠️ ${error.message}`);
     } else {
-      alert(`❌ Échec de /${cmdName}\n\n${error.message}\n\nVérifiez que le bot est bien sur ce serveur et qu'il a les permissions nécessaires.`);
+      let hint = '';
+      if (/50013|Missing Permissions/i.test(error.message)) hint = "\n\n👉 Le bot n'a pas la permission, ou son rôle est plus bas que celui du membre/rôle visé. Monte le rôle du bot dans Paramètres du serveur > Rôles.";
+      else if (/10007|Unknown Member/i.test(error.message)) hint = "\n\n👉 Ce membre n'est pas sur le serveur (vérifie l'ID).";
+      else if (/50007|Cannot send messages to this user/i.test(error.message)) hint = '';
+      alert(`❌ Échec de /${cmdName}\n\n${error.message}${hint}\n\nVérifiez que le bot est bien sur ce serveur et qu'il a les permissions nécessaires.`);
     }
   }
 };
