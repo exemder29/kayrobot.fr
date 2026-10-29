@@ -166,11 +166,20 @@ async function checkProxy() {
     return;
   }
   try {
-    const me = await discordRequest('GET', '/users/@me');
-    el.innerHTML = '<span class="text-discord-green font-semibold"></span>';
-    el.firstChild.textContent = `✓ Connecté au bot "${me.username}" via le Worker sécurisé`;
+    const res = await fetch(`${BOT_PROXY_URL}/__check`);
+    const d = await res.json();
+    const ok = d.discordStatus === 200;
+    el.innerHTML = `<span class="font-semibold ${ok ? 'text-discord-green' : 'text-discord-red'}"></span><pre class="mt-2 text-[11px] text-gray-400 whitespace-pre-wrap"></pre>`;
+    el.querySelector('span').textContent = ok
+      ? `✓ Connecté au bot "${d.nomDuBot}" via le Worker sécurisé`
+      : '❌ Discord refuse le token du bot';
+    el.querySelector('pre').textContent =
+      `Longueur du token : ${d.longueur} (attendu : environ 70)\n` +
+      `Morceaux séparés par des points : ${d.morceaux} (attendu : 3)\n` +
+      `ID du bot dans le token : ${d.idDansLeToken || '(illisible)'}\n` +
+      `Réponse de Discord : ${d.discordStatus} ${d.discordMessage || ''}`;
   } catch (e) {
-    el.innerHTML = '<span class="text-discord-red font-semibold">❌ Worker injoignable ou token du bot invalide</span><pre class="mt-2 text-[11px] text-gray-400 whitespace-pre-wrap"></pre>';
+    el.innerHTML = '<span class="text-discord-red font-semibold">❌ Worker injoignable</span><pre class="mt-2 text-[11px] text-gray-400 whitespace-pre-wrap"></pre>';
     el.querySelector('pre').textContent = e.message;
   }
 }

@@ -83,6 +83,24 @@ export default {
 
     const url = new URL(request.url);
     const path = url.pathname;
+
+    // Diagnostic : ne révèle jamais le token, seulement sa forme et la réponse de Discord
+    if (path === '/__check') {
+      const parts = BOT_TOKEN.split('.');
+      let idFromToken = '';
+      try { idFromToken = atob(parts[0]); } catch (e) {}
+      const r = await fetch(`${DISCORD}/users/@me`, { headers: { Authorization: `Bot ${BOT_TOKEN}` } });
+      let me = {};
+      try { me = await r.json(); } catch (e) {}
+      return json({
+        longueur: BOT_TOKEN.length,
+        morceaux: parts.length,
+        idDansLeToken: idFromToken,
+        discordStatus: r.status,
+        discordMessage: me.message || null,
+        nomDuBot: me.username || null
+      }, 200, origin);
+    }
     const route = ROUTES.find(([methods, re]) => methods.includes(request.method) && re.test(path));
     if (!route) return json({ message: 'Route non autorisée' }, 403, origin);
 
