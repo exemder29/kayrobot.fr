@@ -76,7 +76,8 @@ export default {
     if (request.method === 'OPTIONS') {
       return new Response(null, { status: 204, headers: cors(origin) });
     }
-    if (!env.BOT_TOKEN) {
+    const BOT_TOKEN = (env.BOT_TOKEN || '').trim().replace(/^["']|["']$/g, '').replace(/^Bot\s+/i, '').trim();
+    if (!BOT_TOKEN) {
       return json({ message: 'BOT_TOKEN non configuré sur le Worker' }, 500, origin);
     }
 
@@ -104,7 +105,7 @@ export default {
       }
       if (kind === 'channel') {
         const ch = await fetch(`${DISCORD}/channels/${match[1]}`, {
-          headers: { Authorization: `Bot ${env.BOT_TOKEN}` }
+          headers: { Authorization: `Bot ${BOT_TOKEN}` }
         });
         if (!ch.ok) return json({ message: 'Salon introuvable pour le bot' }, ch.status, origin);
         const info = await ch.json();
@@ -115,7 +116,7 @@ export default {
     }
 
     // --- Transfert vers Discord avec le token du bot ---
-    const headers = { Authorization: `Bot ${env.BOT_TOKEN}` };
+    const headers = { Authorization: `Bot ${BOT_TOKEN}` };
     const ct = request.headers.get('Content-Type');
     if (ct) headers['Content-Type'] = ct;
     const reason = request.headers.get('X-Audit-Log-Reason');

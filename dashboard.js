@@ -148,7 +148,8 @@ async function loadGuildChannels(guildId) {
   } catch (err) {
     console.error(err);
     let hint = 'erreur réseau : le Worker est injoignable (URL incorrecte ?)';
-    if (/401/.test(err.message)) hint = 'session Discord expirée : reconnecte-toi';
+    if (/Session Discord/.test(err.message)) hint = 'session Discord expirée : reconnecte-toi';
+    else if (/401/.test(err.message)) hint = 'Discord refuse le token du bot : vérifie le secret BOT_TOKEN du Worker (token régénéré ? bien copié en entier ?)';
     else if (/403/.test(err.message)) hint = `le bot n'est pas sur ce serveur ou n'a pas accès : invite-le avec le bouton "Ajouter le bot à un serveur"`;
     else if (/404|10004/.test(err.message)) hint = `le bot n'est pas sur ce serveur`;
     else if (/500/.test(err.message)) hint = 'le Worker n\'a pas de BOT_TOKEN configuré';
