@@ -14,8 +14,9 @@ const DISCORD = 'https://discord.com/api/v10';
 const ROUTES = [
   [['GET'], /^\/guilds\/(\d+)$/, 'guild'],
   [['GET', 'POST'], /^\/guilds\/(\d+)\/channels$/, 'guild'],
-  [['PUT'], /^\/guilds\/(\d+)\/bans\/\d+$/, 'guild'],
-  [['PATCH', 'DELETE'], /^\/guilds\/(\d+)\/members\/\d+$/, 'guild'],
+  [['PUT', 'DELETE'], /^\/guilds\/(\d+)\/bans\/\d+$/, 'guild'],
+  [['GET', 'PATCH', 'DELETE'], /^\/guilds\/(\d+)\/members\/\d+$/, 'guild'],
+  [['PATCH', 'DELETE'], /^\/guilds\/(\d+)\/roles\/\d+$/, 'guild'],
   [['GET', 'POST'], /^\/guilds\/(\d+)\/roles$/, 'guild'],
   [['PUT', 'DELETE'], /^\/guilds\/(\d+)\/members\/\d+\/roles\/\d+$/, 'guild'],
   [['GET', 'PATCH'], /^\/channels\/(\d+)$/, 'channel'],
@@ -98,6 +99,23 @@ async function getUserAdminGuilds(userToken) {
   return entry.guilds.filter(g => g.owner || (BigInt(g.permissions) & 8n) === 8n);
 }
 
+
+// ---------- File de tâches : le site demande, le bot exécute (avertissements, programmations, bump…) ----------
+const JOB_TYPES = new Set([
+  'avertir', 'avertissements', 'effacer-avertissements',
+  'programmer', 'programmations', 'annuler-programmation',
+  'bump-activer', 'bump-desactiver', 'bump-statut',
+  'apparence'
+]);
+
+async function readPending(env) {
+  const raw = await env.CONFIG.get('jobs:pending');
+  let list = [];
+  try { list = raw ? JSON.parse(raw) : []; } catch (e) {}
+  const limit = Date.now() - 120_000; // une tâche non prise en charge au bout de 2 min est abandonnée
+  return list.filter(j => j.createdAt > limit);
+}
+
 // ---------- Configuration partagée site <-> bot (stockée dans Workers KV) ----------
 const SNOWFLAKE = /^\d{15,25}$/;
 
@@ -110,7 +128,7 @@ function cleanTicketConfig(input) {
     staffRoleId: id(input.staffRoleId),
     categoryId: id(input.categoryId),
     questions: lines(input.questions, 5, 45),
-    options: lines(input.options, 25, 80)
+    options: lines(input.options, 25, 150)
   };
 }
 
@@ -127,6 +145,19 @@ async function botRoute(request, env, url) {
     return new Response(JSON.stringify({ message: 'Clé invalide' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
   }
   if (!env.CONFIG) return new Response(JSON.stringify({ message: 'KV non lié' }), { status: 500, headers: { 'Content-Type': 'application/json' } });
+
+  if (url.pathname === '/bot/jobs' && request.method === 'GET') {
+    const pending = await readPending(env);
+    return new Response(JSON.stringify(pending), { headers: { 'Content-Type': 'application/json' } });
+  }
+  const jr = url.pathname.match(/^\/bot\/jobs\/([a-z0-9]+)\/result$/);
+  if (jr && request.method === 'POST') {
+    let body; try { body = await request.json(); } catch (e) { body = {}; }
+    const pending = (await readPending(env)).filter(j => j.id !== jr[1]);
+    await env.CONFIG.put('jobs:pending', JSON.stringify(pending));
+    await env.CONFIG.put(`jobs:result:${jr[1]}`, JSON.stringify({ ok: !!body.ok, message: String(body.message || '').slice(0, 1500) }), { expirationTtl: 300 });
+    return new Response('{"ok":true}', { headers: { 'Content-Type': 'application/json' } });
+  }
   const m = url.pathname.match(/^\/bot\/config\/(\d+)\/tickets$/);
   if (!m) return new Response(JSON.stringify({ message: 'Route inconnue' }), { status: 404, headers: { 'Content-Type': 'application/json' } });
   const kvKey = `tickets:${m[1]}`;
@@ -239,6 +270,34 @@ export default {
         doc.updatedBy = 'site';
         await env.CONFIG.put(kvKey, JSON.stringify(doc));
         return json(doc, 200, origin);
+      }
+      return json({ message: 'Méthode non autorisée' }, 405, origin);
+    }
+
+    // Tâches pour le bot
+    const jb = path.match(/^\/jobs\/(\d+)(?:\/([a-z0-9]+))?$/);
+    if (jb) {
+      const gid = jb[1];
+      const userTok = (request.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '');
+      if (!userTok) return json({ message: 'Non connecté' }, 401, origin);
+      if (!(await isGuildAdmin(userTok, gid))) return json({ message: "Vous n'êtes pas administrateur de ce serveur" }, 403, origin);
+      const kvErr = kvOrError(env, origin); if (kvErr) return kvErr;
+
+      if (request.method === 'POST' && !jb[2]) {
+        let body; try { body = await request.json(); } catch (e) { return json({ message: 'JSON invalide' }, 400, origin); }
+        if (!JOB_TYPES.has(body.type)) return json({ message: 'Type de tâche inconnu' }, 400, origin);
+        const args = body.args && typeof body.args === 'object' ? body.args : {};
+        if (JSON.stringify(args).length > 4000) return json({ message: 'Tâche trop volumineuse' }, 400, origin);
+        const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+        const pending = await readPending(env);
+        if (pending.filter(j => j.guildId === gid).length >= 10) return json({ message: 'Trop de tâches en attente, réessaie dans un instant' }, 429, origin);
+        pending.push({ id, guildId: gid, type: body.type, args, createdAt: Date.now() });
+        await env.CONFIG.put('jobs:pending', JSON.stringify(pending));
+        return json({ id }, 200, origin);
+      }
+      if (request.method === 'GET' && jb[2]) {
+        const raw = await env.CONFIG.get(`jobs:result:${jb[2]}`);
+        return json(raw ? { done: true, ...JSON.parse(raw) } : { done: false }, 200, origin);
       }
       return json({ message: 'Méthode non autorisée' }, 405, origin);
     }

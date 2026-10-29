@@ -1,6 +1,7 @@
 const CLIENT_ID = '1563284812351938611';
 let userGuilds = [];
 let selectedGuild = null;
+let currentUserId = '';
 let rawChannelsList = [];
 let allChannelsList = [];
 let guildRolesList = [];
@@ -44,6 +45,7 @@ function initDashboard(token) {
     return res.json();
   });
   profile.then(user => {
+    currentUserId = user.id;
     document.getElementById('user-display-name').textContent = user.username;
     if (user.avatar) {
       document.getElementById('user-avatar').src = `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`;
@@ -206,34 +208,41 @@ async function loadTicketConfig(guildId) {
   const status = document.getElementById('ticket-cfg-status');
   if (!status) return;
   status.textContent = 'Chargement de la configuration…';
-  try {
-    const [cfg, roles] = await Promise.all([
-      discordRequest('GET', `/config/${guildId}/tickets`),
-      discordRequest('GET', `/guilds/${guildId}/roles`)
-    ]);
-    if (!selectedGuild || selectedGuild.id !== guildId) return;
-    guildRolesList = roles.filter(r => r.name !== '@everyone').sort((a, b) => b.position - a.position);
 
-    const fill = (id, items, placeholder, current) => {
-      const sel = document.getElementById(id);
-      sel.innerHTML = '';
-      const none = document.createElement('option'); none.value = ''; none.textContent = placeholder; sel.appendChild(none);
-      items.forEach(it => { const o = document.createElement('option'); o.value = it.id; o.textContent = it.label; sel.appendChild(o); });
-      sel.value = items.some(i => i.id === current) ? current : '';
-    };
-    fill('tcfg-channel', rawChannelsList.map(c => ({ id: c.id, label: `#${c.name}` })), 'Choisis un salon', cfg.requestChannelId);
-    fill('tcfg-role', guildRolesList.map(r => ({ id: r.id, label: `@${r.name}` })), 'Choisis un rôle', cfg.staffRoleId);
-    fill('tcfg-category', allChannelsList.filter(c => c.type === 4).map(c => ({ id: c.id, label: c.name })), 'Aucune catégorie', cfg.categoryId);
+  const fill = (id, items, placeholder, current) => {
+    const sel = document.getElementById(id);
+    sel.innerHTML = '';
+    const none = document.createElement('option'); none.value = ''; none.textContent = placeholder; sel.appendChild(none);
+    items.forEach(it => { const o = document.createElement('option'); o.value = it.id; o.textContent = it.label; sel.appendChild(o); });
+    sel.value = items.some(i => i.id === current) ? current : '';
+  };
+
+  // 1) Salons et rôles : indépendants de la config enregistrée
+  const rolesError = await loadGuildRoles(guildId);
+  if (!selectedGuild || selectedGuild.id !== guildId) return;
+  fill('tcfg-channel', rawChannelsList.map(c => ({ id: c.id, label: `#${c.name}` })), 'Choisis un salon', '');
+  fill('tcfg-role', guildRolesList.map(r => ({ id: r.id, label: `@${r.name}` })), 'Choisis un rôle', '');
+  fill('tcfg-category', allChannelsList.filter(c => c.type === 4).map(c => ({ id: c.id, label: c.name })), 'Aucune catégorie', '');
+
+  // 2) Config déjà enregistrée (peut échouer sans bloquer les listes)
+  try {
+    const cfg = await discordRequest('GET', `/config/${guildId}/tickets`);
+    if (!selectedGuild || selectedGuild.id !== guildId) return;
+    document.getElementById('tcfg-channel').value = cfg.requestChannelId || '';
+    document.getElementById('tcfg-role').value = cfg.staffRoleId || '';
+    document.getElementById('tcfg-category').value = cfg.categoryId || '';
     document.getElementById('tcfg-questions').value = (cfg.questions || []).join('\n');
     document.getElementById('tcfg-options').value = (cfg.options || []).join('\n');
     status.textContent = cfg.updatedAt
       ? `Dernière modification ${formatWhen(cfg.updatedAt)} (${cfg.updatedBy === 'discord' ? 'depuis Discord' : 'depuis le site'}).`
-      : "Pas encore configuré.";
+      : 'Pas encore configuré.';
   } catch (e) {
-    status.textContent = /KV|CONFIG/.test(e.message)
-      ? "Le stockage de configuration n'est pas encore activé sur le Worker (voir BOT-SYNC.md)."
-      : `Configuration indisponible : ${e.message}`;
+    status.textContent = rolesError || (/KV|CONFIG|500/.test(e.message)
+      ? "Le stockage de configuration n'est pas encore activé sur le Worker : tu peux remplir le formulaire, mais l'enregistrement ne marchera qu'après la mise en place décrite dans BOT-SYNC.md."
+      : `Configuration indisponible : ${e.message}`);
+    return;
   }
+  if (rolesError) status.textContent = rolesError;
 }
 
 async function saveTicketConfig() {
@@ -261,6 +270,30 @@ async function saveTicketConfig() {
 }
 window.saveTicketConfig = saveTicketConfig;
 
+// ---------- Tâches exécutées par le bot (avertissements, programmations, bump, apparence) ----------
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+async function botJob(type, args) {
+  let created;
+  try {
+    created = await discordRequest('POST', `/jobs/${selectedGuild.id}`, { type, args: { ...args, modId: currentUserId } });
+  } catch (e) {
+    if (/KV|CONFIG|500/.test(e.message)) throw new UserInputError("Le stockage du Worker n'est pas activé (voir BOT-SYNC.md).");
+    throw e;
+  }
+  for (let i = 0; i < 25; i++) {
+    await sleep(1500);
+    const r = await discordRequest('GET', `/jobs/${selectedGuild.id}/${created.id}`);
+    if (r.done) {
+      if (!r.ok) throw new UserInputError(r.message || 'Le bot a refusé la demande.');
+      return r.message;
+    }
+  }
+  throw new UserInputError("Le bot n'a pas répondu. Vérifie qu'il est démarré avec SYNC_URL et BOT_API_KEY dans son .env.");
+}
+
+const fmtDateFr = iso => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); return m ? `${m[3]}/${m[2]}/${m[1]}` : ''; };
+
 const DISCORD_API = 'https://discord.com/api/v10';
 
 // Message dans les listes de salons quand on ne peut pas charger les vrais salons
@@ -287,6 +320,7 @@ async function loadGuildChannels(guildId) {
     allChannelsList = channels;
     rawChannelsList = channels.filter(c => c.type === 0 || c.type === 5); // textuels + annonces
     populateAllChannelDropdowns(rawChannelsList);
+    fillVoiceAndRoleDropdowns();
     loadTicketConfig(guildId);
     if (selectedGuild && selectedGuild.id === guildId) {
       overviewStats.channels = rawChannelsList.length;
@@ -333,6 +367,34 @@ async function checkProxy() {
     setChip(false, 'Worker injoignable');
     el.innerHTML = '<div class="notice error">Le Worker est injoignable.</div><pre class="diag"></pre>';
     el.querySelector('pre').textContent = e.message;
+  }
+}
+
+function fillSelect(select, items, placeholder) {
+  select.innerHTML = '';
+  const none = document.createElement('option'); none.value = ''; none.textContent = placeholder; select.appendChild(none);
+  items.forEach(it => { const o = document.createElement('option'); o.value = it.id; o.textContent = it.label; select.appendChild(o); });
+}
+
+function fillVoiceAndRoleDropdowns() {
+  const voices = allChannelsList.filter(c => c.type === 2 || c.type === 13).map(c => ({ id: c.id, label: `🔊 ${c.name}` }));
+  document.querySelectorAll('.guild-voice-dropdown').forEach(sel => fillSelect(sel, voices, 'Choisis un salon vocal'));
+  const roles = guildRolesList.map(r => ({ id: r.id, label: `@${r.name}` }));
+  document.querySelectorAll('.guild-roles-dropdown').forEach(sel => fillSelect(sel, roles, 'Choisis un rôle'));
+}
+
+async function loadGuildRoles(guildId) {
+  try {
+    const roles = await discordRequest('GET', `/guilds/${guildId}/roles`);
+    guildRolesList = roles.filter(r => r.name !== '@everyone').sort((a, b) => b.position - a.position);
+    fillVoiceAndRoleDropdowns();
+    return '';
+  } catch (e) {
+    guildRolesList = [];
+    fillVoiceAndRoleDropdowns();
+    return /403|Route non autoris/.test(e.message)
+      ? 'Rôles indisponibles : redéploie la dernière version de worker.js sur Cloudflare.'
+      : `Rôles indisponibles : ${e.message}`;
   }
 }
 
@@ -432,6 +494,8 @@ const CHANNEL_FIELD = {
   'verrouiller': 'lock-channel-select',
   'deverrouiller': 'lock-channel-select',
   'ticket-panneau': 'ticket-panel-channel-select',
+  'programmer': 'prog-channel-select',
+  'bump-activer': 'bump-channel-select',
   'infos-serveur': 'info-channel-select'
 };
 
@@ -518,11 +582,133 @@ window.executeBotCommand = async function(cmdName) {
         break;
       }
 
-      case 'avertir':
+
+      case 'avertir': {
+        const user = requireSnowflake(val('warn-user'), 'ID du membre');
+        const reason = val('warn-reason');
+        if (!reason) throw new UserInputError('Entrez une raison.');
+        okMsg = await botJob('avertir', { userId: user, reason });
+        break;
+      }
+      case 'avertissements':
+        okMsg = await botJob('avertissements', { userId: requireSnowflake(val('warns-user'), 'ID du membre') });
+        break;
+      case 'effacer-avertissements': {
+        const user = requireSnowflake(val('clearwarns-user'), 'ID du membre');
+        if (!(await askConfirm('Effacer les avertissements ?', `Tous les avertissements du membre ${user} seront supprimés.`, 'Effacer'))) return;
+        okMsg = await botJob('effacer-avertissements', { userId: user });
+        break;
+      }
+      case 'programmer': {
+        const content = val('prog-msg');
+        if (!content) throw new UserInputError('Entrez un message.');
+        const date = fmtDateFr(val('prog-date'));
+        if (!date || !val('prog-time')) throw new UserInputError('Choisis une date et une heure.');
+        okMsg = await botJob('programmer', { content, date, time: val('prog-time'), channelId });
+        break;
+      }
+      case 'programmations':
+        okMsg = await botJob('programmations', {});
+        break;
+      case 'annuler-programmation': {
+        const id = val('prog-cancel-id');
+        if (!id) throw new UserInputError("Entrez l'ID du message programmé (voir la liste).");
+        okMsg = await botJob('annuler-programmation', { id });
+        break;
+      }
+      case 'bump-activer':
+        okMsg = await botJob('bump-activer', { channelId, roleId: val('bump-role-select') });
+        break;
+      case 'bump-desactiver':
+      case 'bump-statut':
+        okMsg = await botJob(cmdName, {});
+        break;
+      case 'apparence': {
+        const name = val('look-name'), imageUrl = val('look-image');
+        if (!name && !imageUrl) throw new UserInputError('Entrez un nom ou le lien d\'une photo.');
+        okMsg = await botJob('apparence', { name, imageUrl });
+        break;
+      }
+      case 'apparence-reset':
+        if (!(await askConfirm("Réinitialiser l'apparence ?", 'Le bot reprendra son nom et sa photo de base.', 'Réinitialiser'))) return;
+        okMsg = await botJob('apparence', { reset: true });
+        break;
+
+      case 'debannir': {
+        const user = requireSnowflake(val('unban-user'), "ID de l'utilisateur");
+        await discordRequest('DELETE', `/guilds/${guildId}/bans/${user}`, undefined, `${modName()} : ${val('unban-reason') || 'Aucune raison'}`);
+        okMsg = `✅ Utilisateur ${user} débanni.`;
+        break;
+      }
+      case 'fin-sourdine': {
+        const user = requireSnowflake(val('untimeout-user'), 'ID du membre');
+        await discordRequest('PATCH', `/guilds/${guildId}/members/${user}`, { communication_disabled_until: null }, `${modName()} : fin de sourdine`);
+        okMsg = `✅ Sourdine retirée pour ${user}.`;
+        break;
+      }
+      case 'deconnecter': {
+        const user = requireSnowflake(val('vdisc-user'), 'ID du membre');
+        await discordRequest('PATCH', `/guilds/${guildId}/members/${user}`, { channel_id: null }, `${modName()} : déconnexion vocale`);
+        okMsg = `✅ Membre ${user} déconnecté du vocal.`;
+        break;
+      }
+      case 'deplacer': {
+        const user = requireSnowflake(val('vmove-user'), 'ID du membre');
+        const target = val('vmove-channel');
+        if (!target) throw new UserInputError('Choisis un salon vocal.');
+        await discordRequest('PATCH', `/guilds/${guildId}/members/${user}`, { channel_id: target }, `${modName()} : déplacement vocal`);
+        okMsg = `✅ Membre ${user} déplacé.`;
+        break;
+      }
+      case 'role-modifier': {
+        const role = val('rolemod-select');
+        if (!role) throw new UserInputError('Choisis un rôle.');
+        const body = {};
+        if (val('rolemod-name')) body.name = val('rolemod-name');
+        if (document.getElementById('rolemod-usecolor').checked) body.color = parseInt(val('rolemod-color').replace('#', ''), 16);
+        if (!Object.keys(body).length) throw new UserInputError('Entrez un nouveau nom ou coche « Changer la couleur ».');
+        await discordRequest('PATCH', `/guilds/${guildId}/roles/${role}`, body, `${modName()} : modification du rôle`);
+        okMsg = '✅ Rôle modifié.';
+        loadGuildRoles(guildId);
+        break;
+      }
+      case 'role-supprimer': {
+        const role = val('roledel-select');
+        if (!role) throw new UserInputError('Choisis un rôle.');
+        const r = guildRolesList.find(x => x.id === role);
+        if (!(await askConfirm('Supprimer ce rôle ?', `Le rôle « ${r ? r.name : role} » sera supprimé définitivement.`, 'Supprimer'))) return;
+        await discordRequest('DELETE', `/guilds/${guildId}/roles/${role}`, undefined, `${modName()} : suppression du rôle`);
+        okMsg = '✅ Rôle supprimé.';
+        loadGuildRoles(guildId);
+        break;
+      }
+      case 'role-remplacer': {
+        const member = requireSnowflake(val('rolerep-member'), 'ID du membre');
+        const oldRole = val('rolerep-old'), newRole = val('rolerep-new');
+        if (!oldRole || !newRole) throw new UserInputError('Choisis le rôle à retirer et le rôle à donner.');
+        if (oldRole === newRole) throw new UserInputError('Les deux rôles sont identiques.');
+        await discordRequest('PUT', `/guilds/${guildId}/members/${member}/roles/${newRole}`);
+        await discordRequest('DELETE', `/guilds/${guildId}/members/${member}/roles/${oldRole}`);
+        okMsg = '✅ Rôle remplacé.';
+        break;
+      }
+      case 'role-voir': {
+        const roles = await discordRequest('GET', `/guilds/${guildId}/roles`);
+        const list = roles.filter(r => r.name !== '@everyone').sort((a, b) => b.position - a.position);
+        okMsg = `${list.length} rôle(s) :\n` + list.slice(0, 40).map(r => `@${r.name}`).join(', ');
+        break;
+      }
+      case 'infos-membre': {
+        const user = requireSnowflake(val('minfo-user'), 'ID du membre');
+        const m = await discordRequest('GET', `/guilds/${guildId}/members/${user}`);
+        const created = new Date(Number((BigInt(user) >> 22n) + 1420070400000n));
+        const names = (m.roles || []).map(id => { const r = guildRolesList.find(x => x.id === id); return r ? `@${r.name}` : id; });
+        okMsg = `${m.user ? m.user.username : user} (${user})\nCompte créé : ${created.toLocaleDateString('fr-FR')}\nA rejoint : ${m.joined_at ? new Date(m.joined_at).toLocaleDateString('fr-FR') : '?'}\nRôles : ${names.join(', ') || 'aucun'}`;
+        break;
+      }
+
       case 'serveur':
-        // Ces commandes enregistrent des données dans les fichiers du bot (avertissements, structure créée, config tickets).
-        // Les faire depuis le site créerait des données que le bot ne verrait jamais.
-        throw new UserInputError(`/${cmdName} doit être lancée directement dans Discord avec le bot : il garde ses données (compteur d'avertissements, annulation, configuration des tickets) de son côté.`);
+        throw new UserInputError(`/serveur et /serveur-annuler restent à lancer dans Discord : ils créent (ou suppriment) toute la structure du serveur et demandent de suivre le résultat sur place.`);
 
       case 'nettoyer': {
         const count = parseInt(val('clear-count'), 10);
@@ -633,7 +819,7 @@ window.executeBotCommand = async function(cmdName) {
         throw new UserInputError(`Commande inconnue : ${cmdName}`);
     }
 
-    toast('ok', COMMAND_LABELS[cmdName] || 'Terminé', okMsg.replace(/^[^\p{L}\p{N}]+/u, ''));
+    toast('ok', COMMAND_LABELS[cmdName] || 'Terminé', okMsg.replace(/^[^\p{L}\p{N}]+/u, ''), okMsg.length > 90 ? 20000 : 5000);
     logActivity(true, COMMAND_LABELS[cmdName] || cmdName, okMsg.replace(/^[^\p{L}\p{N}]+/u, ''));
   } catch (error) {
     console.error(error);
@@ -655,7 +841,13 @@ const COMMAND_LABELS = {
   'expulser': 'Membre expulsé', 'nettoyer': 'Salon nettoyé', 'mode-lent': 'Mode lent modifié',
   'verrouiller': 'Salon verrouillé', 'deverrouiller': 'Salon déverrouillé', 'role-creer': 'Rôle créé',
   'role-ajouter': 'Rôle donné', 'role-retirer': 'Rôle retiré', 'ticket-panneau': 'Panneau de tickets posté', 'ticket-config': 'Tickets configurés',
-  'ping': 'Latence mesurée', 'infos-serveur': 'Statistiques postées'
+  'ping': 'Latence mesurée', 'infos-serveur': 'Statistiques postées',
+  'avertir': 'Membre averti', 'avertissements': 'Avertissements', 'effacer-avertissements': 'Avertissements effacés',
+  'programmer': 'Message programmé', 'programmations': 'Messages programmés', 'annuler-programmation': 'Programmation annulée',
+  'bump-activer': 'Rappel de bump activé', 'bump-desactiver': 'Rappel de bump arrêté', 'bump-statut': 'Rappel de bump',
+  'apparence': 'Apparence enregistrée', 'apparence-reset': 'Apparence réinitialisée',
+  'debannir': 'Membre débanni', 'fin-sourdine': 'Sourdine retirée', 'deconnecter': 'Membre déconnecté', 'deplacer': 'Membre déplacé',
+  'role-modifier': 'Rôle modifié', 'role-supprimer': 'Rôle supprimé', 'role-remplacer': 'Rôle remplacé', 'role-voir': 'Rôles du serveur', 'infos-membre': 'Infos du membre'
 };
 
 // ---------- Notifications ----------
