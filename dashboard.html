@@ -56,7 +56,7 @@
         </button>
         <button id="nav-settings" class="nav-btn w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-sm font-medium transition cursor-pointer">
           <i class="fa-solid fa-key w-5 text-center"></i>
-          <span>Token Bot (API)</span>
+          <span>Token Bot (statut)</span>
         </button>
       </nav>
     </div>
@@ -401,21 +401,12 @@
       <section id="tab-settings" class="tab-content hidden space-y-4">
         <div class="bg-discord-cardBg p-6 rounded-xl border border-gray-800 space-y-4">
           <h3 class="text-lg font-bold text-white flex items-center gap-2">
-            <i class="fa-solid fa-key text-discord-blurple"></i> Configuration du Token Bot Discord
+            <i class="fa-solid fa-key text-discord-blurple"></i> Token du Bot Discord
           </h3>
           <p class="text-xs text-gray-400">
-            Pour que le dashboard puisse exécuter réellement les commandes sur votre serveur Discord (envoi de messages, bannissements, création de salons), il faut renseigner le <b>Token de votre Bot Discord</b> (provenant du Discord Developer Portal).
+            Le token du bot est déjà enregistré de façon sécurisée dans Firestore (<code>admin &gt; config &gt; token</code>). Il n'a pas besoin d'être saisi ici et n'est jamais affiché.
           </p>
-          <div class="space-y-2">
-            <label class="block text-xs font-medium text-gray-300">Token Bot Secret</label>
-            <input type="password" id="bot-token-input" placeholder="MTE2MzI4... (Votre token secret)" class="w-full bg-discord-inputBg border border-gray-700 rounded-lg p-3 text-xs text-white font-mono">
-          </div>
-          <button onclick="saveBotToken()" class="bg-discord-blurple hover:bg-opacity-80 text-white font-bold px-6 py-2.5 rounded-lg text-xs transition cursor-pointer">
-            Sauvegarder le Token Bot
-          </button>
-          <div id="token-status" class="text-xs font-semibold text-discord-green hidden">
-            ✓ Token enregistré avec succès ! Le bot est prêt à exécuter les actions.
-          </div>
+          <div id="token-state" class="text-xs text-gray-400">Vérification du token...</div>
         </div>
       </section>
 

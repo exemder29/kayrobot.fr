@@ -54,24 +54,7 @@ async function verifyAdminCode() {
 function showAdminPanel() {
   document.getElementById('auth-modal').classList.add('hidden');
   document.getElementById('admin-panel').classList.remove('hidden');
-  
-  const savedToken = localStorage.getItem('bot_secret_token');
-  if (savedToken) {
-    document.getElementById('admin-bot-token').value = savedToken;
-  }
 }
-
-window.saveToken = function() {
-  const token = document.getElementById('admin-bot-token').value.trim();
-  if (!token) {
-    alert("Veuillez entrer un token valide !");
-    return;
-  }
-  localStorage.setItem('bot_secret_token', token);
-  const status = document.getElementById('save-status');
-  status.classList.remove('hidden');
-  setTimeout(() => status.classList.add('hidden'), 4000);
-};
 
 window.logoutAdmin = function() {
   localStorage.removeItem('admin_authenticated');

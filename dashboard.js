@@ -3,6 +3,32 @@ let userGuilds = [];
 let selectedGuild = null;
 let rawChannelsList = [];
 
+// Le token du bot est stocké dans Firestore (collection "admin", document "config", champ "token").
+// Il n'est jamais saisi ni affiché dans le dashboard, et gardé seulement en mémoire.
+const FIRESTORE_PROJECTS = ['kayrobot-discord', 'kayrobot-fr'];
+let botTokenCache = null;
+let botTokenPromise = null;
+
+function getBotToken() {
+  if (botTokenCache) return Promise.resolve(botTokenCache);
+  if (!botTokenPromise) {
+    botTokenPromise = (async () => {
+      for (const project of FIRESTORE_PROJECTS) {
+        try {
+          const res = await fetch(`https://firestore.googleapis.com/v1/projects/${project}/databases/(default)/documents/admin/config`);
+          if (!res.ok) continue;
+          const doc = await res.json();
+          const t = doc.fields && doc.fields.token && doc.fields.token.stringValue;
+          if (t) { botTokenCache = t.trim(); return botTokenCache; }
+        } catch (e) { /* on essaie le projet suivant */ }
+      }
+      return null;
+    })();
+    botTokenPromise.then(t => { if (!t) botTokenPromise = null; });
+  }
+  return botTokenPromise;
+}
+
 window.addEventListener('DOMContentLoaded', () => {
   const hash = window.location.hash.substring(1);
   const params = new URLSearchParams(hash);
@@ -19,11 +45,14 @@ window.addEventListener('DOMContentLoaded', () => {
     return;
   }
 
-  // Charger le token bot s'il existe déjà
-  const savedBotToken = localStorage.getItem('bot_secret_token');
-  if (savedBotToken) {
-    document.getElementById('bot-token-input').value = savedBotToken;
-  }
+  // Charger le token bot depuis Firestore (affiche seulement son état)
+  getBotToken().then(t => {
+    const el = document.getElementById('token-state');
+    if (!el) return;
+    el.innerHTML = t
+      ? '<span class="text-discord-green font-semibold">✓ Token du bot chargé depuis Firestore (admin/config)</span>'
+      : '<span class="text-discord-red font-semibold">❌ Token introuvable dans Firestore (admin/config, champ "token") ou lecture refusée par les règles</span>';
+  });
 
   initDashboard(token);
   initEventListeners();
@@ -128,16 +157,16 @@ function setChannelDropdownsMessage(msg) {
   });
 }
 
-function loadGuildChannels(guildId) {
-  const botToken = localStorage.getItem('bot_secret_token');
+async function loadGuildChannels(guildId) {
   rawChannelsList = [];
+  setChannelDropdownsMessage('Chargement des salons...');
+  const botToken = await getBotToken();
 
   if (!botToken) {
-    setChannelDropdownsMessage('⚠️ Ajoutez le token du bot (onglet Token Bot)');
+    setChannelDropdownsMessage('⚠️ Token du bot introuvable dans Firestore');
     return;
   }
 
-  setChannelDropdownsMessage('Chargement des salons...');
   fetch(`${DISCORD_API}/guilds/${guildId}/channels`, {
     headers: { Authorization: `Bot ${botToken}` }
   })
@@ -188,26 +217,11 @@ window.filterChannels = function(inputElement, selectId) {
     });
 };
 
-window.saveBotToken = function() {
-  const token = document.getElementById('bot-token-input').value.trim();
-  if (!token) {
-    alert("Veuillez entrer un token valide !");
-    return;
-  }
-  localStorage.setItem('bot_secret_token', token);
-  const status = document.getElementById('token-status');
-  status.classList.remove('hidden');
-  setTimeout(() => status.classList.add('hidden'), 4000);
-
-  if (selectedGuild) {
-    loadGuildChannels(selectedGuild.id);
-  }
-};
-
 // ---------- Appels API Discord ----------
 
 async function discordRequest(method, path, body, reason) {
-  const botToken = localStorage.getItem('bot_secret_token');
+  const botToken = await getBotToken();
+  if (!botToken) throw new UserInputError('Token du bot introuvable dans Firestore (admin/config).');
   const headers = { Authorization: `Bot ${botToken}` };
   if (body !== undefined) headers['Content-Type'] = 'application/json';
   if (reason) headers['X-Audit-Log-Reason'] = encodeURIComponent(reason);
@@ -267,10 +281,9 @@ window.executeBotCommand = async function(cmdName) {
     return;
   }
 
-  const botToken = localStorage.getItem('bot_secret_token');
+  const botToken = await getBotToken();
   if (!botToken) {
-    alert("⚠️ Renseignez d'abord le Token de votre Bot dans l'onglet 'Token Bot (API)' !");
-    switchTab('settings');
+    alert("⚠️ Token du bot introuvable dans Firestore (collection admin > document config > champ token), ou lecture refusée par les règles Firestore.");
     return;
   }
 

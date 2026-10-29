@@ -68,23 +68,14 @@
       <button onclick="logoutAdmin()" class="text-gray-400 hover:text-discord-red text-xs"><i class="fa-solid fa-right-from-bracket"></i> Verrouiller</button>
     </div>
 
-    <div class="space-y-3">
-      <label class="block text-xs font-medium text-gray-300">Token du Bot Secret (stocké localement / sécurisé)</label>
-      <input type="password" id="admin-bot-token" placeholder="MTE2MzI4..." class="w-full bg-discord-inputBg border border-gray-700 rounded-xl p-3 text-xs text-white font-mono">
-      <p class="text-[10px] text-gray-500">Ce token permet au dashboard d'exécuter les commandes et d'envoyer des embeds sur vos serveurs Discord sans l'exposer dans le code source.</p>
+    <div class="space-y-2">
+      <p class="text-xs font-medium text-discord-green"><i class="fa-solid fa-circle-check"></i> Le token du bot est déjà enregistré dans Firestore (admin &gt; config &gt; token).</p>
+      <p class="text-[10px] text-gray-500">Il n'est plus saisi ni affiché ici. Pour le changer, modifiez le champ <code>token</code> directement dans la console Firebase.</p>
     </div>
 
-    <div class="flex gap-3">
-      <button onclick="saveToken()" class="flex-1 bg-discord-green hover:bg-opacity-80 text-black font-bold py-3 rounded-xl text-xs transition cursor-pointer">
-        Enregistrer le Token
-      </button>
-      <a href="dashboard.html" class="flex-1 bg-discord-blurple hover:bg-opacity-80 text-white font-bold py-3 rounded-xl text-xs transition text-center no-underline flex items-center justify-center">
-        Aller au Dashboard <i class="fa-solid fa-arrow-right ml-1.5"></i>
-      </a>
-    </div>
-    <div id="save-status" class="text-xs text-discord-green font-semibold text-center hidden">
-      ✓ Token enregistré avec succès !
-    </div>
+    <a href="dashboard.html" class="w-full bg-discord-blurple hover:bg-opacity-80 text-white font-bold py-3 rounded-xl text-xs transition text-center no-underline flex items-center justify-center">
+      Aller au Dashboard <i class="fa-solid fa-arrow-right ml-1.5"></i>
+    </a>
   </div>
 
   <script src="admin.js"></script>
