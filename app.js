@@ -57,7 +57,7 @@ window.switchTab = function(tabName) {
   const titles = {
     'dashboard': 'Tableau de Bord',
     'console': 'Console En Direct',
-    'embed': 'Créateur d'Embeds',
+    'embed': "Créateur d'Embeds",
     'settings': 'Configuration Bot'
   };
   document.getElementById('page-title').textContent = titles[tabName] || 'Console';
