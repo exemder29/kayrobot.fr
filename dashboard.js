@@ -8,19 +8,29 @@ let rawChannelsList = [];
 const FIRESTORE_PROJECTS = ['kayrobot-discord', 'kayrobot-fr'];
 let botTokenCache = null;
 let botTokenPromise = null;
+let botTokenErrors = [];
 
 function getBotToken() {
   if (botTokenCache) return Promise.resolve(botTokenCache);
   if (!botTokenPromise) {
     botTokenPromise = (async () => {
+      botTokenErrors = [];
       for (const project of FIRESTORE_PROJECTS) {
         try {
           const res = await fetch(`https://firestore.googleapis.com/v1/projects/${project}/databases/(default)/documents/admin/config`);
-          if (!res.ok) continue;
+          if (!res.ok) {
+            let msg = '';
+            try { msg = (await res.json()).error.message; } catch (e) {}
+            botTokenErrors.push(`${project} : HTTP ${res.status} ${msg}`.trim());
+            continue;
+          }
           const doc = await res.json();
           const t = doc.fields && doc.fields.token && doc.fields.token.stringValue;
           if (t) { botTokenCache = t.trim(); return botTokenCache; }
-        } catch (e) { /* on essaie le projet suivant */ }
+          botTokenErrors.push(`${project} : document trouvé mais champ "token" vide ou absent (champs : ${Object.keys(doc.fields || {}).join(', ') || 'aucun'})`);
+        } catch (e) {
+          botTokenErrors.push(`${project} : ${e.message}`);
+        }
       }
       return null;
     })();
@@ -51,7 +61,8 @@ window.addEventListener('DOMContentLoaded', () => {
     if (!el) return;
     el.innerHTML = t
       ? '<span class="text-discord-green font-semibold">✓ Token du bot chargé depuis Firestore (admin/config)</span>'
-      : '<span class="text-discord-red font-semibold">❌ Token introuvable dans Firestore (admin/config, champ "token") ou lecture refusée par les règles</span>';
+      : '<span class="text-discord-red font-semibold">❌ Token introuvable dans Firestore</span><pre class="mt-2 text-[11px] text-gray-400 whitespace-pre-wrap"></pre>';
+    if (!t) el.querySelector('pre').textContent = botTokenErrors.join('\n');
   });
 
   initDashboard(token);
@@ -163,7 +174,7 @@ async function loadGuildChannels(guildId) {
   const botToken = await getBotToken();
 
   if (!botToken) {
-    setChannelDropdownsMessage('⚠️ Token du bot introuvable dans Firestore');
+    setChannelDropdownsMessage('⚠️ Token du bot introuvable dans Firestore (voir onglet Token Bot pour le détail)');
     return;
   }
 
