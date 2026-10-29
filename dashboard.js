@@ -3,40 +3,12 @@ let userGuilds = [];
 let selectedGuild = null;
 let rawChannelsList = [];
 
-// Le token du bot est stocké dans Firestore (collection "admin", document "config", champ "token").
-// Il n'est jamais saisi ni affiché dans le dashboard, et gardé seulement en mémoire.
-const FIRESTORE_PROJECTS = ['kayrobot-discord', 'kayrobot-fr'];
-let botTokenCache = null;
-let botTokenPromise = null;
-let botTokenErrors = [];
+// Les appels au bot passent par le Worker Cloudflare (le token du bot reste secret côté serveur).
+// Colle ici l'URL de ton Worker (sans "/" à la fin), ex : https://kayrobot-proxy.moncompte.workers.dev
+const BOT_PROXY_URL = 'COLLE_ICI_URL_DU_WORKER';
 
-function getBotToken() {
-  if (botTokenCache) return Promise.resolve(botTokenCache);
-  if (!botTokenPromise) {
-    botTokenPromise = (async () => {
-      botTokenErrors = [];
-      for (const project of FIRESTORE_PROJECTS) {
-        try {
-          const res = await fetch(`https://firestore.googleapis.com/v1/projects/${project}/databases/(default)/documents/admin/config`);
-          if (!res.ok) {
-            let msg = '';
-            try { msg = (await res.json()).error.message; } catch (e) {}
-            botTokenErrors.push(`${project} : HTTP ${res.status} ${msg}`.trim());
-            continue;
-          }
-          const doc = await res.json();
-          const t = doc.fields && doc.fields.token && doc.fields.token.stringValue;
-          if (t) { botTokenCache = t.trim().replace(/^["']|["']$/g, '').replace(/^Bot\s+/i, '').trim(); return botTokenCache; }
-          botTokenErrors.push(`${project} : document trouvé mais champ "token" vide ou absent (champs : ${Object.keys(doc.fields || {}).join(', ') || 'aucun'})`);
-        } catch (e) {
-          botTokenErrors.push(`${project} : ${e.message}`);
-        }
-      }
-      return null;
-    })();
-    botTokenPromise.then(t => { if (!t) botTokenPromise = null; });
-  }
-  return botTokenPromise;
+function proxyConfigured() {
+  return /^https:\/\/.+/.test(BOT_PROXY_URL);
 }
 
 window.addEventListener('DOMContentLoaded', () => {
@@ -55,15 +27,8 @@ window.addEventListener('DOMContentLoaded', () => {
     return;
   }
 
-  // Charger le token bot depuis Firestore (affiche seulement son état)
-  getBotToken().then(t => {
-    const el = document.getElementById('token-state');
-    if (!el) return;
-    el.innerHTML = t
-      ? '<span class="text-discord-green font-semibold">✓ Token du bot chargé depuis Firestore (admin/config)</span>'
-      : '<span class="text-discord-red font-semibold">❌ Token introuvable dans Firestore</span><pre class="mt-2 text-[11px] text-gray-400 whitespace-pre-wrap"></pre>';
-    if (!t) el.querySelector('pre').textContent = botTokenErrors.join('\n');
-  });
+  // Vérifier le Worker (affiche seulement son état)
+  checkProxy();
 
   initDashboard(token);
   initEventListeners();
@@ -170,38 +135,43 @@ function setChannelDropdownsMessage(msg) {
 
 async function loadGuildChannels(guildId) {
   rawChannelsList = [];
-  setChannelDropdownsMessage('Chargement des salons...');
-  const botToken = await getBotToken();
-
-  if (!botToken) {
-    setChannelDropdownsMessage('⚠️ Token du bot introuvable dans Firestore (voir onglet Token Bot pour le détail)');
+  if (!proxyConfigured()) {
+    setChannelDropdownsMessage('⚠️ URL du Worker non configurée dans dashboard.js (BOT_PROXY_URL)');
     return;
   }
+  setChannelDropdownsMessage('Chargement des salons...');
 
-  fetch(`${DISCORD_API}/guilds/${guildId}/channels`, {
-    headers: { Authorization: `Bot ${botToken}` }
-  })
-  .then(async res => {
-    if (!res.ok) {
-      let detail = '';
-      try { detail = (await res.json()).message || ''; } catch (e) {}
-      throw new Error(`${res.status} ${detail}`.trim());
-    }
-    return res.json();
-  })
-  .then(channels => {
+  try {
+    const channels = await discordRequest('GET', `/guilds/${guildId}/channels`);
     rawChannelsList = channels.filter(c => c.type === 0 || c.type === 5); // textuels + annonces
     populateAllChannelDropdowns(rawChannelsList);
-  })
-  .catch(err => {
+  } catch (err) {
     console.error(err);
-    let hint = 'erreur réseau/CORS';
-    if (/^401/.test(err.message)) hint = 'token invalide (401) : régénère-le dans le Developer Portal et remets-le dans Firestore';
-    else if (/^403/.test(err.message)) hint = `le bot n'est pas sur ce serveur ou n'a pas accès (403) : invite-le avec le bouton "Ajouter le bot à un serveur"`;
-    else if (/^404/.test(err.message)) hint = 'serveur introuvable pour ce bot (404) : le bot n\'est pas sur ce serveur';
-    else if (/^429/.test(err.message)) hint = 'trop de requêtes (429), réessaie dans quelques secondes';
+    let hint = 'erreur réseau : le Worker est injoignable (URL incorrecte ?)';
+    if (/401/.test(err.message)) hint = 'session Discord expirée : reconnecte-toi';
+    else if (/403/.test(err.message)) hint = `le bot n'est pas sur ce serveur ou n'a pas accès : invite-le avec le bouton "Ajouter le bot à un serveur"`;
+    else if (/404|10004/.test(err.message)) hint = `le bot n'est pas sur ce serveur`;
+    else if (/500/.test(err.message)) hint = 'le Worker n\'a pas de BOT_TOKEN configuré';
+    else if (/429/.test(err.message)) hint = 'trop de requêtes, réessaie dans quelques secondes';
     setChannelDropdownsMessage(`❌ ${hint} [${err.message}]`);
-  });
+  }
+}
+
+async function checkProxy() {
+  const el = document.getElementById('token-state');
+  if (!el) return;
+  if (!proxyConfigured()) {
+    el.innerHTML = '<span class="text-discord-red font-semibold">❌ URL du Worker non configurée (BOT_PROXY_URL dans dashboard.js)</span>';
+    return;
+  }
+  try {
+    const me = await discordRequest('GET', '/users/@me');
+    el.innerHTML = '<span class="text-discord-green font-semibold"></span>';
+    el.firstChild.textContent = `✓ Connecté au bot "${me.username}" via le Worker sécurisé`;
+  } catch (e) {
+    el.innerHTML = '<span class="text-discord-red font-semibold">❌ Worker injoignable ou token du bot invalide</span><pre class="mt-2 text-[11px] text-gray-400 whitespace-pre-wrap"></pre>';
+    el.querySelector('pre').textContent = e.message;
+  }
 }
 
 function populateAllChannelDropdowns(channels) {
@@ -236,13 +206,13 @@ window.filterChannels = function(inputElement, selectId) {
 // ---------- Appels API Discord ----------
 
 async function discordRequest(method, path, body, reason) {
-  const botToken = await getBotToken();
-  if (!botToken) throw new UserInputError('Token du bot introuvable dans Firestore (admin/config).');
-  const headers = { Authorization: `Bot ${botToken}` };
+  if (!proxyConfigured()) throw new UserInputError('URL du Worker non configurée (BOT_PROXY_URL dans dashboard.js).');
+  const headers = { Authorization: `Bearer ${localStorage.getItem('discord_token')}` };
+  if (selectedGuild) headers['X-Guild-Id'] = selectedGuild.id;
   if (body !== undefined) headers['Content-Type'] = 'application/json';
   if (reason) headers['X-Audit-Log-Reason'] = encodeURIComponent(reason);
 
-  const res = await fetch(`${DISCORD_API}${path}`, {
+  const res = await fetch(`${BOT_PROXY_URL}${path}`, {
     method,
     headers,
     body: body !== undefined ? JSON.stringify(body) : undefined
@@ -255,7 +225,7 @@ async function discordRequest(method, path, body, reason) {
       detail = j.message || '';
       if (j.code) detail += ` (code ${j.code})`;
     } catch (e) {}
-    throw new Error(`Discord ${res.status} : ${detail || res.statusText}`);
+    throw new Error(`${res.status} : ${detail || res.statusText}`);
   }
   if (res.status === 204) return null;
   try { return await res.json(); } catch (e) { return null; }
@@ -297,9 +267,8 @@ window.executeBotCommand = async function(cmdName) {
     return;
   }
 
-  const botToken = await getBotToken();
-  if (!botToken) {
-    alert("⚠️ Token du bot introuvable dans Firestore (collection admin > document config > champ token), ou lecture refusée par les règles Firestore.");
+  if (!proxyConfigured()) {
+    alert("⚠️ L'URL du Worker n'est pas configurée dans dashboard.js (BOT_PROXY_URL).");
     return;
   }
 
@@ -526,7 +495,7 @@ window.executeBotCommand = async function(cmdName) {
     if (error instanceof UserInputError) {
       alert(`⚠️ ${error.message}`);
     } else {
-      alert(`❌ Échec de /${cmdName}\n\n${error.message}\n\nVérifiez que le bot est bien sur ce serveur, qu'il a les permissions nécessaires, et que le token est correct.`);
+      alert(`❌ Échec de /${cmdName}\n\n${error.message}\n\nVérifiez que le bot est bien sur ce serveur et qu'il a les permissions nécessaires.`);
     }
   }
 };
