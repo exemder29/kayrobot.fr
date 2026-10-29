@@ -86,6 +86,14 @@ export default {
     const url = new URL(request.url);
     const path = url.pathname;
 
+    // Infos publiques pour la page d'accueil (nombre de serveurs). Aucune donnée sensible.
+    if (path === '/__stats') {
+      const r = await fetch(`${DISCORD}/applications/@me`, { headers: { Authorization: `Bot ${BOT_TOKEN}` } });
+      if (!r.ok) return json({ ok: false, status: r.status }, 200, origin);
+      const app = await r.json();
+      return json({ ok: true, serveurs: app.approximate_guild_count ?? null, nom: app.name || null }, 200, origin);
+    }
+
     // Diagnostic : ne révèle jamais le token, seulement sa forme et la réponse de Discord
     if (path === '/__check') {
       const parts = BOT_TOKEN.split('.');
