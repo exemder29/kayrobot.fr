@@ -1,57 +1,33 @@
 <!DOCTYPE html>
-<html lang="fr" class="dark">
+<html lang="fr">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>KayRobot - Connexion</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      darkMode: 'class',
-      theme: {
-        extend: {
-          colors: {
-            discord: {
-              blurple: '#5865F2',
-              darkBg: '#313338',
-              cardBg: '#1E1F22',
-              sidebarBg: '#2B2D31',
-              inputBg: '#111214'
-            }
-          }
-        }
-      }
-    }
-  </script>
+  <title>KayRobot – Connexion</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="stylesheet" href="style.css">
 </head>
-<body class="bg-discord-darkBg text-gray-200 font-sans min-h-screen flex items-center justify-center p-4">
-
-  <div class="bg-discord-cardBg border border-gray-800 p-8 rounded-2xl shadow-2xl max-w-md w-full text-center space-y-6">
-    <div class="flex flex-col items-center space-y-3">
-      <div class="w-16 h-16 rounded-full bg-discord-blurple flex items-center justify-center font-bold text-white text-2xl shadow-lg ring-4 ring-discord-blurple/30">
-        K
-      </div>
+<body>
+  <main class="center-screen">
+    <section class="login-card">
+      <div class="logo" aria-hidden="true">K</div>
       <div>
-        <h1 class="text-2xl font-bold text-white">KayRobot Dashboard</h1>
-        <p class="text-xs text-gray-400 mt-1">ID Bot : 1563284812351938611</p>
+        <h1>KayRobot</h1>
+        <p class="lead">Gère tes serveurs Discord depuis ton navigateur : modération, messages, rôles et tickets.</p>
       </div>
-    </div>
 
-    <div class="space-y-3">
-      <a href="https://discord.com/oauth2/authorize?client_id=1563284812351938611&redirect_uri=https%3A%2F%2Fexemder29.github.io%2Fkayrobot.fr%2Fdashboard.html&response_type=token&scope=identify%20guilds" class="w-full bg-discord-blurple hover:bg-opacity-90 text-white font-bold py-3 px-4 rounded-xl transition duration-200 flex items-center justify-center space-x-2 shadow-lg no-underline cursor-pointer">
-        <i class="fa-brands fa-discord text-xl"></i>
-        <span>Connexion avec Discord</span>
-      </a>
-      
-      <!-- Bouton d'accès à l'Espace Admin sécurisé par Code -->
-      <a href="admin.html" class="w-full bg-discord-inputBg hover:bg-gray-800 text-gray-300 font-semibold py-2.5 px-4 rounded-xl transition duration-200 flex items-center justify-center space-x-2 border border-gray-700 text-xs no-underline cursor-pointer">
-        <i class="fa-solid fa-lock text-discord-blurple"></i>
-        <span>Espace Admin (Configuration Token)</span>
-      </a>
-    </div>
-  </div>
+      <div class="stack">
+        <a class="btn btn-primary" href="https://discord.com/oauth2/authorize?client_id=1563284812351938611&redirect_uri=https%3A%2F%2Fexemder29.github.io%2Fkayrobot.fr%2Fdashboard.html&response_type=token&scope=identify%20guilds">
+          <i class="fa-brands fa-discord"></i> Se connecter avec Discord
+        </a>
+        <a class="btn btn-ghost" href="admin.html"><i class="fa-solid fa-lock"></i> Espace admin</a>
+      </div>
 
+      <p class="fine">Tu verras uniquement les serveurs où tu es administrateur.</p>
+    </section>
+  </main>
 </body>
 </html>

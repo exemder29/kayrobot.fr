@@ -73,6 +73,17 @@ function fetchUserGuilds(token) {
   });
 }
 
+const presenceCache = new Map(); // guildId -> bot présent ou non
+
+const INVITE_URL = guildId =>
+  `https://discord.com/oauth2/authorize?client_id=${CLIENT_ID}&permissions=8&integration_type=0&scope=bot+applications.commands&guild_id=${guildId}&disable_guild_select=true`;
+
+function guildIconUrl(g) {
+  return g && g.icon
+    ? `https://cdn.discordapp.com/icons/${g.id}/${g.icon}.png?size=128`
+    : 'https://cdn.discordapp.com/embed/avatars/0.png';
+}
+
 function renderGuilds(guilds) {
   const container = document.getElementById('guilds-container');
   const loading = document.getElementById('guilds-loading');
@@ -81,43 +92,79 @@ function renderGuilds(guilds) {
   container.classList.remove('hidden');
 
   if (guilds.length === 0) {
-    container.innerHTML = '<p class="text-sm text-gray-400 col-span-full text-center py-6">Aucun serveur administrable trouvé.</p>';
+    container.innerHTML = '<div class="empty" style="grid-column:1/-1"><strong>Aucun serveur trouvé</strong><p>Tu dois être propriétaire ou administrateur d\'un serveur pour le gérer ici.</p></div>';
     return;
   }
 
+  const queue = [];
   guilds.forEach(guild => {
-    const iconUrl = guild.icon
-      ? `https://cdn.discordapp.com/icons/${guild.id}/${guild.icon}.png`
-      : 'https://cdn.discordapp.com/embed/avatars/0.png';
-
-    const card = document.createElement('div');
-    card.className = 'bg-discord-cardBg border border-gray-800 p-4 rounded-xl flex items-center justify-between hover:border-discord-blurple transition shadow';
+    const card = document.createElement('article');
+    card.className = 'guild';
     card.innerHTML = `
-      <div class="flex items-center space-x-3 min-w-0">
-        <img src="${iconUrl}" class="w-12 h-12 rounded-full border border-gray-700 shrink-0 object-cover">
-        <div class="min-w-0">
-          <h4 class="guild-name font-bold text-white text-sm truncate"></h4>
-          <span class="text-[10px] text-discord-green font-semibold">● Administrateur</span>
+      <div class="guild-top">
+        <img alt="">
+        <div style="min-width:0">
+          <h4 class="guild-name"></h4>
+          <span class="role">${guild.owner ? 'Propriétaire' : 'Administrateur'}</span>
         </div>
       </div>
-      <button class="guild-manage bg-discord-blurple hover:bg-opacity-80 text-white text-xs px-3 py-2 rounded-lg font-medium transition shrink-0 cursor-pointer">
-        Gérer
-      </button>
-    `;
+      <div class="guild-actions">
+        <span class="state">Vérification du bot…</span>
+        <span class="guild-btns"></span>
+      </div>`;
+    card.querySelector('img').src = guildIconUrl(guild);
     card.querySelector('.guild-name').textContent = guild.name;
-    card.querySelector('.guild-manage').addEventListener('click', () => selectGuild(guild.id, guild.name));
     container.appendChild(card);
+    queue.push({ guild, card });
   });
+
+  // Vérifie, 3 à la fois, si le bot est présent sur chaque serveur
+  let next = 0;
+  const worker = async () => {
+    while (next < queue.length) {
+      const { guild, card } = queue[next++];
+      const state = card.querySelector('.state');
+      const btns = card.querySelector('.guild-btns');
+      let present = presenceCache.has(guild.id) ? presenceCache.get(guild.id) : null;
+      if (present === null) {
+        try {
+          await discordRequest('GET', `/guilds/${guild.id}`, undefined, undefined, guild.id);
+          present = true;
+        } catch (e) {
+          present = /\b(403|404)\b/.test(e.message) ? false : null;
+        }
+        if (present !== null) presenceCache.set(guild.id, present);
+      }
+      if (present === true) {
+        state.textContent = 'Bot présent'; state.className = 'state ok';
+        btns.innerHTML = '<button class="btn btn-primary btn-small">Gérer</button>';
+        btns.firstChild.addEventListener('click', () => selectGuild(guild.id, guild.name));
+      } else if (present === false) {
+        state.textContent = 'Bot absent'; state.className = 'state bad';
+        btns.innerHTML = '<a class="btn btn-ok btn-small" target="_blank" rel="noopener">Inviter le bot</a>';
+        btns.firstChild.href = INVITE_URL(guild.id);
+      } else {
+        state.textContent = 'Bot non vérifié'; state.className = 'state';
+        btns.innerHTML = '<button class="btn btn-ghost btn-small">Gérer</button>';
+        btns.firstChild.addEventListener('click', () => selectGuild(guild.id, guild.name));
+      }
+    }
+  };
+  [worker(), worker(), worker()];
 }
 
 function selectGuild(id, name) {
   selectedGuild = { id, name };
+  const g = userGuilds.find(x => x.id === id);
   document.getElementById('selected-guild-label').textContent = name;
-  document.getElementById('active-server-badge').classList.remove('hidden');
-  document.getElementById('active-server-badge').textContent = `Serveur : ${name}`;
-  
+  document.getElementById('rail-guild-icon').src = guildIconUrl(g);
+  const badge = document.getElementById('active-server-badge');
+  badge.classList.remove('hidden');
+  badge.textContent = name;
+
   loadGuildChannels(id);
-  switchTab('categories');
+  loadOverview();
+  switchTab('overview');
 }
 
 const DISCORD_API = 'https://discord.com/api/v10';
@@ -145,6 +192,10 @@ async function loadGuildChannels(guildId) {
     const channels = await discordRequest('GET', `/guilds/${guildId}/channels`);
     rawChannelsList = channels.filter(c => c.type === 0 || c.type === 5); // textuels + annonces
     populateAllChannelDropdowns(rawChannelsList);
+    if (selectedGuild && selectedGuild.id === guildId) {
+      overviewStats.channels = rawChannelsList.length;
+      if (overviewStats.roles != null || overviewStats.members != null) renderOverviewMeta();
+    }
   } catch (err) {
     console.error(err);
     let hint = 'erreur réseau : le Worker est injoignable (URL incorrecte ?)';
@@ -160,35 +211,38 @@ async function loadGuildChannels(guildId) {
 
 async function checkProxy() {
   const el = document.getElementById('token-state');
-  if (!el) return;
+  const chip = document.getElementById('bot-chip');
+  const setChip = (ok, text) => { chip.textContent = text; chip.className = `chip ${ok ? 'ok' : 'bad'}`; };
+
   if (!proxyConfigured()) {
-    el.innerHTML = '<span class="text-discord-red font-semibold">❌ URL du Worker non configurée (BOT_PROXY_URL dans dashboard.js)</span>';
+    setChip(false, 'Worker non configuré');
+    el.innerHTML = '<div class="notice error">L\'URL du Worker n\'est pas configurée (BOT_PROXY_URL dans dashboard.js).</div>';
     return;
   }
   try {
     const res = await fetch(`${BOT_PROXY_URL}/__check`);
     const d = await res.json();
     const ok = d.discordStatus === 200;
-    el.innerHTML = `<span class="font-semibold ${ok ? 'text-discord-green' : 'text-discord-red'}"></span><pre class="mt-2 text-[11px] text-gray-400 whitespace-pre-wrap"></pre>`;
-    el.querySelector('span').textContent = ok
-      ? `✓ Connecté au bot "${d.nomDuBot}" via le Worker sécurisé`
-      : '❌ Discord refuse le token du bot';
+    setChip(ok, ok ? `${d.nomDuBot} est connecté` : 'Token du bot refusé');
+    el.innerHTML = `<div class="notice ${ok ? '' : 'error'}"></div><pre class="diag"></pre>`;
+    el.querySelector('.notice').textContent = ok
+      ? `Connecté au bot « ${d.nomDuBot} » via le Worker sécurisé.`
+      : 'Discord refuse le token du bot. Vérifie le secret BOT_TOKEN du Worker.';
     el.querySelector('pre').textContent =
-      `Longueur du token : ${d.longueur} (attendu : environ 70)\n` +
-      `Morceaux séparés par des points : ${d.morceaux} (attendu : 3)\n` +
-      `Longueur de chaque morceau : ${(d.longueurs || []).join(' / ')} (attendu : 27 / 6 / 38 environ)\n` +
-      `Début du token (ID du bot encodé) : ${d.debutDuToken}\n` +
-      `ID du bot dans le token : ${d.idDansLeToken || '(illisible)'} (attendu : 1563284812351938611)\n` +
+      `Longueur du token : ${d.longueur} (environ 70 attendu)\n` +
+      `Morceaux : ${d.morceaux} (3 attendus), longueurs ${(d.longueurs || []).join(' / ')}\n` +
+      `ID du bot dans le token : ${d.idDansLeToken || 'illisible'} (attendu : ${CLIENT_ID})\n` +
       `Réponse de Discord : ${d.discordStatus} ${d.discordMessage || ''}`;
   } catch (e) {
-    el.innerHTML = '<span class="text-discord-red font-semibold">❌ Worker injoignable</span><pre class="mt-2 text-[11px] text-gray-400 whitespace-pre-wrap"></pre>';
+    setChip(false, 'Worker injoignable');
+    el.innerHTML = '<div class="notice error">Le Worker est injoignable.</div><pre class="diag"></pre>';
     el.querySelector('pre').textContent = e.message;
   }
 }
 
 function populateAllChannelDropdowns(channels) {
   document.querySelectorAll('.guild-channels-dropdown').forEach(select => {
-    select.innerHTML = '<option value="">-- Sélectionnez un salon --</option>';
+    select.innerHTML = '<option value="">Choisis un salon</option>';
     channels.forEach(ch => {
       const opt = document.createElement('option');
       opt.value = ch.id;
@@ -204,7 +258,7 @@ window.filterChannels = function(inputElement, selectId) {
   const select = document.getElementById(selectId);
   if (!select) return;
 
-  select.innerHTML = '<option value="">-- Sélectionnez un salon --</option>';
+  select.innerHTML = '<option value="">Choisis un salon</option>';
   rawChannelsList
     .filter(ch => ch.name.toLowerCase().includes(filter))
     .forEach(ch => {
@@ -217,10 +271,11 @@ window.filterChannels = function(inputElement, selectId) {
 
 // ---------- Appels API Discord ----------
 
-async function discordRequest(method, path, body, reason) {
+async function discordRequest(method, path, body, reason, guildOverride) {
   if (!proxyConfigured()) throw new UserInputError('URL du Worker non configurée (BOT_PROXY_URL dans dashboard.js).');
   const headers = { Authorization: `Bearer ${localStorage.getItem('discord_token')}` };
-  if (selectedGuild) headers['X-Guild-Id'] = selectedGuild.id;
+  const gid = guildOverride || (selectedGuild && selectedGuild.id);
+  if (gid) headers['X-Guild-Id'] = gid;
   if (body !== undefined) headers['Content-Type'] = 'application/json';
   if (reason) headers['X-Audit-Log-Reason'] = encodeURIComponent(reason);
 
@@ -287,20 +342,20 @@ const CHANNEL_FIELD = {
 
 window.executeBotCommand = async function(cmdName) {
   if (!selectedGuild) {
-    alert("⚠️ Veuillez d'abord sélectionner un serveur dans l'onglet 'Mes Serveurs' !");
+    toast('warn', 'Choisis un serveur', "Sélectionne d'abord un serveur dans « Mes serveurs ».");
     switchTab('servers');
     return;
   }
 
   if (!proxyConfigured()) {
-    alert("⚠️ L'URL du Worker n'est pas configurée dans dashboard.js (BOT_PROXY_URL).");
+    toast('error', 'Worker non configuré', "L'URL du Worker manque dans dashboard.js (BOT_PROXY_URL).");
     return;
   }
 
   const guildId = selectedGuild.id;
   const channelId = CHANNEL_FIELD[cmdName] ? val(CHANNEL_FIELD[cmdName]) : '';
   if (CHANNEL_FIELD[cmdName] && !channelId) {
-    alert("Veuillez sélectionner un salon dans la liste déroulante !\n(Si la liste est vide : le bot doit être présent sur le serveur et le token correct.)");
+    toast('warn', 'Choisis un salon', "Sélectionne un salon dans la liste. S'il n'y en a aucun, le bot doit être présent sur ce serveur.");
     return;
   }
 
@@ -336,7 +391,7 @@ window.executeBotCommand = async function(cmdName) {
         const user = requireSnowflake(val('ban-user'), 'ID du membre');
         const days = parseInt(val('ban-delete-days') || '0', 10);
         const reason = val('ban-reason') || 'Aucune raison';
-        if (!confirm(`Bannir le membre ${user} ?`)) return;
+        if (!(await askConfirm('Bannir ce membre ?', `Le membre ${user} sera banni du serveur et recevra un message privé.`, 'Bannir'))) return;
         await tryDM(user, `🔨 Tu as été **banni** de **${selectedGuild.name}**.\nRaison : ${val('ban-reason') || 'Aucune'}`);
         await discordRequest('PUT', `/guilds/${guildId}/bans/${user}`, { delete_message_seconds: days * 86400 }, `${modName()} : ${reason}`);
         okMsg = `✅ Membre ${user} banni.`;
@@ -361,7 +416,7 @@ window.executeBotCommand = async function(cmdName) {
       case 'expulser': {
         const user = requireSnowflake(val('kick-user'), 'ID du membre');
         const reason = val('kick-reason') || 'Aucune raison';
-        if (!confirm(`Expulser le membre ${user} ?`)) return;
+        if (!(await askConfirm('Expulser ce membre ?', `Le membre ${user} sera expulsé. Il pourra revenir avec une invitation.`, 'Expulser'))) return;
         await tryDM(user, `👢 Tu as été **expulsé** de **${selectedGuild.name}**.\nRaison : ${val('kick-reason') || 'Aucune'}`);
         await discordRequest('DELETE', `/guilds/${guildId}/members/${user}`, undefined, `${modName()} : ${reason}`);
         okMsg = `✅ Membre ${user} expulsé.`;
@@ -378,7 +433,7 @@ window.executeBotCommand = async function(cmdName) {
       case 'nettoyer': {
         const count = parseInt(val('clear-count'), 10);
         if (!count || count < 1 || count > 100) throw new UserInputError('Entrez un nombre entre 1 et 100.');
-        if (!confirm(`Supprimer les ${count} derniers messages de ce salon ?`)) return;
+        if (!(await askConfirm('Supprimer ces messages ?', `Les ${count} derniers messages de ce salon seront supprimés définitivement.`, 'Supprimer'))) return;
         const msgs = await discordRequest('GET', `/channels/${channelId}/messages?limit=${count}`);
         const limit = Date.now() - 14 * 86400e3; // Discord refuse le bulk-delete des messages > 14 jours
         const ids = msgs.filter(m => new Date(m.timestamp).getTime() > limit).map(m => m.id);
@@ -484,66 +539,208 @@ window.executeBotCommand = async function(cmdName) {
         throw new UserInputError(`Commande inconnue : ${cmdName}`);
     }
 
-    alert(okMsg);
+    toast('ok', COMMAND_LABELS[cmdName] || 'Terminé', okMsg.replace(/^[^\p{L}\p{N}]+/u, ''));
+    logActivity(true, COMMAND_LABELS[cmdName] || cmdName, okMsg.replace(/^[^\p{L}\p{N}]+/u, ''));
   } catch (error) {
     console.error(error);
     if (error instanceof UserInputError) {
-      alert(`⚠️ ${error.message}`);
+      toast('warn', 'Vérifie le formulaire', error.message);
     } else {
       let hint = '';
-      if (/50013|Missing Permissions/i.test(error.message)) hint = "\n\n👉 Le bot n'a pas la permission, ou son rôle est plus bas que celui du membre/rôle visé. Monte le rôle du bot dans Paramètres du serveur > Rôles.";
-      else if (/10007|Unknown Member/i.test(error.message)) hint = "\n\n👉 Ce membre n'est pas sur le serveur (vérifie l'ID).";
-      else if (/50007|Cannot send messages to this user/i.test(error.message)) hint = '';
-      alert(`❌ Échec de /${cmdName}\n\n${error.message}${hint}\n\nVérifiez que le bot est bien sur ce serveur et qu'il a les permissions nécessaires.`);
+      if (/50013|Missing Permissions/i.test(error.message)) hint = "\nLe bot n'a pas la permission, ou son rôle est plus bas que celui de la cible. Monte le rôle du bot dans Paramètres du serveur > Rôles.";
+      else if (/10007|Unknown Member/i.test(error.message)) hint = "\nCe membre n'est pas sur le serveur : vérifie l'ID.";
+      else if (/403/.test(error.message) && /administrateur/i.test(error.message)) hint = '\nTu dois être administrateur de ce serveur.';
+      toast('error', `${COMMAND_LABELS[cmdName] || cmdName} a échoué`, error.message + hint, 9000);
+      logActivity(false, COMMAND_LABELS[cmdName] || cmdName, error.message);
     }
   }
 };
 
-window.switchCategory = function(cat) {
-  document.querySelectorAll('.cmd-category-content').forEach(el => el.classList.add('hidden'));
-  document.querySelectorAll('.category-btn').forEach(el => {
-    el.classList.remove('border-discord-blurple');
-    el.classList.add('border-gray-800');
-  });
-
-  const targetCat = document.getElementById(`category-${cat}`);
-  const targetBtn = document.getElementById(`cat-btn-${cat}`);
-  if (targetCat) targetCat.classList.remove('hidden');
-  if (targetBtn) {
-    targetBtn.classList.remove('border-gray-800');
-    targetBtn.classList.add('border-discord-blurple');
-  }
+const COMMAND_LABELS = {
+  'say': 'Message envoyé', 'embed': 'Embed posté', 'bannir': 'Membre banni', 'sourdine': 'Membre en sourdine',
+  'expulser': 'Membre expulsé', 'nettoyer': 'Salon nettoyé', 'mode-lent': 'Mode lent modifié',
+  'verrouiller': 'Salon verrouillé', 'deverrouiller': 'Salon déverrouillé', 'role-creer': 'Rôle créé',
+  'role-ajouter': 'Rôle donné', 'role-retirer': 'Rôle retiré', 'ticket-panneau': 'Panneau de tickets posté',
+  'ping': 'Latence mesurée', 'infos-serveur': 'Statistiques postées'
 };
 
-function initEventListeners() {
-  const tabs = ['servers', 'categories', 'settings'];
-  tabs.forEach(tab => {
-    const btn = document.getElementById(`nav-${tab}`);
-    if (btn) {
-      btn.addEventListener('click', () => {
-        tabs.forEach(t => {
-          document.getElementById(`tab-${t}`).classList.add('hidden');
-          document.getElementById(`nav-${t}`).classList.remove('active');
-        });
-        document.getElementById(`tab-${tab}`).classList.remove('hidden');
-        btn.classList.add('active');
-      });
-    }
-  });
-
-  document.getElementById('btn-refresh-guilds').addEventListener('click', () => {
-    const token = localStorage.getItem('discord_token');
-    if (token) fetchUserGuilds(token);
-  });
-
-  document.getElementById('btn-logout').addEventListener('click', logout);
+// ---------- Notifications ----------
+function toast(kind, title, text, ms = 5000) {
+  const box = document.getElementById('toasts');
+  const el = document.createElement('div');
+  el.className = `toast ${kind === 'error' ? 'error' : kind === 'warn' ? 'warn' : ''}`;
+  const t = document.createElement('strong'); t.textContent = title;
+  el.appendChild(t);
+  if (text) { const p = document.createElement('p'); p.textContent = text; el.appendChild(p); }
+  box.appendChild(el);
+  setTimeout(() => el.remove(), ms);
+  el.addEventListener('click', () => el.remove());
 }
+
+// ---------- Confirmation ----------
+function askConfirm(title, text, yesLabel = 'Confirmer') {
+  return new Promise(resolve => {
+    const modal = document.getElementById('confirm-modal');
+    document.getElementById('confirm-title').textContent = title;
+    document.getElementById('confirm-text').textContent = text;
+    const yes = document.getElementById('confirm-yes');
+    const no = document.getElementById('confirm-no');
+    yes.textContent = yesLabel;
+    modal.classList.remove('hidden');
+    yes.focus();
+    const done = value => {
+      modal.classList.add('hidden');
+      yes.onclick = no.onclick = null;
+      document.removeEventListener('keydown', onKey);
+      resolve(value);
+    };
+    const onKey = e => { if (e.key === 'Escape') done(false); };
+    document.addEventListener('keydown', onKey);
+    yes.onclick = () => done(true);
+    no.onclick = () => done(false);
+  });
+}
+
+// ---------- Journal des actions (stocké dans ce navigateur) ----------
+function journalKey() { return `kay_journal_${selectedGuild ? selectedGuild.id : 'none'}`; }
+
+function readJournal() {
+  try { return JSON.parse(localStorage.getItem(journalKey()) || '[]'); } catch (e) { return []; }
+}
+
+function logActivity(ok, title, detail) {
+  if (!selectedGuild) return;
+  const list = readJournal();
+  list.unshift({ ok, title, detail, at: Date.now() });
+  try { localStorage.setItem(journalKey(), JSON.stringify(list.slice(0, 30))); } catch (e) {}
+  renderJournal();
+}
+
+window.clearJournal = function() {
+  try { localStorage.removeItem(journalKey()); } catch (e) {}
+  renderJournal();
+};
+
+function formatWhen(ts) {
+  const d = new Date(ts);
+  const today = new Date();
+  const hm = d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  return d.toDateString() === today.toDateString() ? `à ${hm}` : `${d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}, ${hm}`;
+}
+
+function renderJournal() {
+  const box = document.getElementById('journal');
+  if (!box) return;
+  const list = readJournal();
+  box.innerHTML = '';
+  if (!list.length) {
+    box.innerHTML = '<div class="empty"><strong>Aucune action pour l\'instant</strong><p>Les commandes que tu lances depuis ce site apparaîtront ici.</p></div>';
+    return;
+  }
+  const ol = document.createElement('ol');
+  list.forEach(item => {
+    const li = document.createElement('li');
+    if (!item.ok) li.className = 'fail';
+    li.innerHTML = '<span class="dot"></span><div><strong></strong><span class="detail"></span></div><time></time>';
+    li.querySelector('strong').textContent = item.ok ? item.title : `${item.title} : échec`;
+    li.querySelector('.detail').textContent = item.detail || '';
+    li.querySelector('time').textContent = formatWhen(item.at);
+    ol.appendChild(li);
+  });
+  box.appendChild(ol);
+}
+
+// ---------- Vue d'ensemble ----------
+let overviewStats = { members: null, online: null, roles: null, channels: null };
+
+function renderOverviewMeta() {
+  const s = overviewStats;
+  const parts = [];
+  if (s.members != null) parts.push(`<b>${s.members.toLocaleString('fr-FR')}</b> membres${s.online != null ? `, dont <b>${s.online.toLocaleString('fr-FR')}</b> en ligne` : ''}`);
+  if (s.roles != null) parts.push(`<b>${s.roles}</b> rôles`);
+  if (s.channels != null) parts.push(`<b>${s.channels}</b> salons textuels`);
+  document.getElementById('ov-meta').innerHTML = parts.length ? parts.join(', ') : 'Chiffres indisponibles pour le moment.';
+}
+
+async function loadOverview() {
+  if (!selectedGuild) return;
+  const g = userGuilds.find(x => x.id === selectedGuild.id);
+  document.getElementById('ov-empty').classList.add('hidden');
+  document.getElementById('ov-body').classList.remove('hidden');
+  document.getElementById('ov-icon').src = guildIconUrl(g);
+  document.getElementById('ov-name').textContent = selectedGuild.name;
+  document.getElementById('ov-meta').textContent = 'Chargement des chiffres…';
+  overviewStats = { members: null, online: null, roles: null, channels: null };
+  renderJournal();
+
+  const id = selectedGuild.id;
+  try {
+    const info = await discordRequest('GET', `/guilds/${id}?with_counts=true`);
+    if (!selectedGuild || selectedGuild.id !== id) return;
+    overviewStats.members = info.approximate_member_count ?? null;
+    overviewStats.online = info.approximate_presence_count ?? null;
+    overviewStats.roles = (info.roles || []).length;
+  } catch (e) {
+    document.getElementById('ov-meta').textContent = /403|404/.test(e.message)
+      ? "Le bot n'est pas sur ce serveur : invite-le depuis « Mes serveurs »."
+      : 'Chiffres indisponibles pour le moment.';
+    return;
+  }
+  renderOverviewMeta();
+}
+
+window.goCommand = function(cat) {
+  switchTab('categories');
+  switchCategory(cat);
+};
+
+// ---------- Navigation ----------
+const TAB_TITLES = {
+  overview: ['Vue d\'ensemble', 'Les chiffres du serveur et ce que tu as fait récemment.'],
+  servers: ['Mes serveurs', 'Choisis le serveur à gérer.'],
+  categories: ['Commandes', 'Lance une action sur le serveur sélectionné.'],
+  settings: ['État du bot', 'Vérifie que le site communique bien avec le bot.']
+};
 
 function switchTab(tab) {
   document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
   document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
   document.getElementById(`tab-${tab}`).classList.remove('hidden');
   document.getElementById(`nav-${tab}`).classList.add('active');
+  const [title, sub] = TAB_TITLES[tab] || ['', ''];
+  document.getElementById('page-title').textContent = title;
+  document.getElementById('page-sub').textContent = sub;
+
+  const warn = document.getElementById('cmd-warning');
+  if (tab === 'categories' && !selectedGuild) {
+    warn.textContent = "Aucun serveur sélectionné. Choisis-en un dans « Mes serveurs » avant de lancer une commande.";
+    warn.classList.remove('hidden');
+  } else {
+    warn.classList.add('hidden');
+  }
+  window.scrollTo({ top: 0 });
+}
+
+window.switchCategory = function(cat) {
+  document.querySelectorAll('.cmd-category-content').forEach(el => el.classList.add('hidden'));
+  document.querySelectorAll('.category-btn').forEach(el => el.classList.remove('active'));
+  const targetCat = document.getElementById(`category-${cat}`);
+  const targetBtn = document.getElementById(`cat-btn-${cat}`);
+  if (targetCat) targetCat.classList.remove('hidden');
+  if (targetBtn) targetBtn.classList.add('active');
+};
+
+function initEventListeners() {
+  document.getElementById('btn-refresh-guilds').addEventListener('click', () => {
+    const token = localStorage.getItem('discord_token');
+    presenceCache.clear();
+    if (token) { document.getElementById('guilds-loading').classList.remove('hidden'); document.getElementById('guilds-container').classList.add('hidden'); fetchUserGuilds(token); }
+  });
+  document.getElementById('guild-search').addEventListener('input', e => {
+    const q = e.target.value.trim().toLowerCase();
+    renderGuilds(userGuilds.filter(g => g.name.toLowerCase().includes(q)));
+  });
+  document.getElementById('btn-logout').addEventListener('click', logout);
 }
 
 function logout() {

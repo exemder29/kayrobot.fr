@@ -27,8 +27,6 @@ const ROUTES = [
   [['GET'], /^\/users\/@me$/, 'me']
 ];
 
-const adminCache = new Map(); // "token:guildId" -> expiration
-
 function cors(origin) {
   return {
     'Access-Control-Allow-Origin': origin,
@@ -46,20 +44,20 @@ function json(obj, status, origin) {
   });
 }
 
-async function isGuildAdmin(userToken, guildId) {
-  const key = `${userToken}:${guildId}`;
-  const exp = adminCache.get(key);
-  if (exp && exp > Date.now()) return true;
+const guildListCache = new Map(); // token -> { exp, guilds }
 
-  const res = await fetch(`${DISCORD}/users/@me/guilds`, {
-    headers: { Authorization: `Bearer ${userToken}` }
-  });
-  if (!res.ok) return false;
-  const guilds = await res.json();
-  const g = guilds.find(x => x.id === guildId);
-  const ok = !!g && (g.owner || (BigInt(g.permissions) & 8n) === 8n);
-  if (ok) adminCache.set(key, Date.now() + 60_000);
-  return ok;
+async function isGuildAdmin(userToken, guildId) {
+  let entry = guildListCache.get(userToken);
+  if (!entry || entry.exp < Date.now()) {
+    const res = await fetch(`${DISCORD}/users/@me/guilds`, {
+      headers: { Authorization: `Bearer ${userToken}` }
+    });
+    if (!res.ok) return false;
+    entry = { exp: Date.now() + 60_000, guilds: await res.json() };
+    guildListCache.set(userToken, entry);
+  }
+  const g = entry.guilds.find(x => x.id === guildId);
+  return !!g && (g.owner || (BigInt(g.permissions) & 8n) === 8n);
 }
 
 async function userTokenValid(userToken) {
@@ -76,7 +74,11 @@ export default {
     if (request.method === 'OPTIONS') {
       return new Response(null, { status: 204, headers: cors(origin) });
     }
-    const BOT_TOKEN = (env.BOT_TOKEN || '').trim().replace(/^["']|["']$/g, '').replace(/^Bot\s+/i, '').trim();
+    // Nettoyage strict : retire guillemets, préfixe "Bot ", espaces, retours à la ligne et caractères invisibles
+    const BOT_TOKEN = (env.BOT_TOKEN || '')
+      .replace(/^\s*["']?\s*(Bot\s+)?/i, '')
+      .replace(/[^\x21-\x7E]/g, '')
+      .replace(/["']$/g, '');
     if (!BOT_TOKEN) {
       return json({ message: 'BOT_TOKEN non configuré sur le Worker' }, 500, origin);
     }
@@ -95,6 +97,8 @@ export default {
       return json({
         longueur: BOT_TOKEN.length,
         morceaux: parts.length,
+        longueurs: parts.map(p => p.length),
+        debutDuToken: parts[0],  // = ID du bot encodé, public (pas un secret)
         idDansLeToken: idFromToken,
         discordStatus: r.status,
         discordMessage: me.message || null,
