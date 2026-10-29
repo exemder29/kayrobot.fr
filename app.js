@@ -110,7 +110,7 @@ window.submitConsoleCommand = function() {
   // Simulate command execution or send to Firestore
   if (cmd.startsWith("/")) {
     setTimeout(() => {
-      appendLog("INFO", `Commande '${cmd}' transmise à KayRobot (ID: 1563284812351938611).`);
+      appendLog("INFO", `Commande '${cmd}' transmise à KayroBot (ID: 1563284812351938611).`);
     }, 300);
   } else {
     appendLog("WARN", "Les commandes doivent débuter par un '/'.");
@@ -122,7 +122,7 @@ window.updateEmbedPreview = function() {
   const title = document.getElementById('embed-title').value || 'Annonce importante !';
   const desc = document.getElementById('embed-description').value || 'Tapez votre message ici...';
   const color = document.getElementById('embed-color').value || '#5865F2';
-  const footer = document.getElementById('embed-footer').value || 'KayRobot System';
+  const footer = document.getElementById('embed-footer').value || 'KayroBot System';
 
   document.getElementById('preview-title').textContent = title;
   document.getElementById('preview-description').textContent = desc;

@@ -2,6 +2,8 @@ const CLIENT_ID = '1563284812351938611';
 let userGuilds = [];
 let selectedGuild = null;
 let rawChannelsList = [];
+let allChannelsList = [];
+let guildRolesList = [];
 
 // Les appels au bot passent par le Worker Cloudflare (le token du bot reste secret côté serveur).
 // Colle ici l'URL de ton Worker (sans "/" à la fin), ex : https://kayrobot-proxy.moncompte.workers.dev
@@ -35,21 +37,19 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 
 function initDashboard(token) {
-  fetch('https://discord.com/api/users/@me', {
-    headers: { Authorization: `Bearer ${token}` }
-  })
-  .then(res => {
+  const headers = { Authorization: `Bearer ${token}` };
+  // Profil, serveurs et présence du bot partent en même temps
+  const profile = fetch('https://discord.com/api/users/@me', { headers }).then(res => {
     if (!res.ok) throw new Error('Token Discord invalide ou expiré');
     return res.json();
-  })
-  .then(user => {
+  });
+  profile.then(user => {
     document.getElementById('user-display-name').textContent = user.username;
     if (user.avatar) {
       document.getElementById('user-avatar').src = `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`;
     }
-    fetchUserGuilds(token);
-  })
-  .catch(() => logout());
+  }).catch(() => logout());
+  fetchUserGuilds(token);
 }
 
 function fetchUserGuilds(token) {
@@ -118,39 +118,73 @@ function renderGuilds(guilds) {
     queue.push({ guild, card });
   });
 
-  // Vérifie, 3 à la fois, si le bot est présent sur chaque serveur
-  let next = 0;
-  const worker = async () => {
-    while (next < queue.length) {
-      const { guild, card } = queue[next++];
-      const state = card.querySelector('.state');
-      const btns = card.querySelector('.guild-btns');
-      let present = presenceCache.has(guild.id) ? presenceCache.get(guild.id) : null;
-      if (present === null) {
-        try {
-          await discordRequest('GET', `/guilds/${guild.id}`, undefined, undefined, guild.id);
-          present = true;
-        } catch (e) {
-          present = /\b(403|404)\b/.test(e.message) ? false : null;
-        }
-        if (present !== null) presenceCache.set(guild.id, present);
-      }
-      if (present === true) {
-        state.textContent = 'Bot présent'; state.className = 'state ok';
-        btns.innerHTML = '<button class="btn btn-primary btn-small">Gérer</button>';
-        btns.firstChild.addEventListener('click', () => selectGuild(guild.id, guild.name));
-      } else if (present === false) {
-        state.textContent = 'Bot absent'; state.className = 'state bad';
-        btns.innerHTML = '<a class="btn btn-ok btn-small" target="_blank" rel="noopener">Inviter le bot</a>';
-        btns.firstChild.href = INVITE_URL(guild.id);
-      } else {
-        state.textContent = 'Bot non vérifié'; state.className = 'state';
-        btns.innerHTML = '<button class="btn btn-ghost btn-small">Gérer</button>';
-        btns.firstChild.addEventListener('click', () => selectGuild(guild.id, guild.name));
-      }
+  const paint = (guild, card, present) => {
+    const state = card.querySelector('.state');
+    const btns = card.querySelector('.guild-btns');
+    if (present === true) {
+      state.textContent = 'Bot présent'; state.className = 'state ok';
+      btns.innerHTML = '<button class="btn btn-primary btn-small">Gérer</button>';
+      btns.firstChild.addEventListener('click', () => selectGuild(guild.id, guild.name));
+    } else if (present === false) {
+      state.textContent = 'Bot absent'; state.className = 'state bad';
+      btns.innerHTML = '<a class="btn btn-ok btn-small" target="_blank" rel="noopener">Inviter le bot</a>';
+      btns.firstChild.href = INVITE_URL(guild.id);
+    } else {
+      state.textContent = 'Bot non vérifié'; state.className = 'state';
+      btns.innerHTML = '<button class="btn btn-ghost btn-small">Gérer</button>';
+      btns.firstChild.addEventListener('click', () => selectGuild(guild.id, guild.name));
     }
   };
-  [worker(), worker(), worker()];
+
+  // Les cartes sont déjà affichées ; les badges se mettent à jour d'un coup
+  loadPresence().then(async ok => {
+    if (ok) {
+      queue.forEach(({ guild, card }) => paint(guild, card, presenceCache.get(guild.id) === true));
+      return;
+    }
+    // Repli (Worker pas encore mis à jour) : vérification serveur par serveur, 6 à la fois
+    let next = 0;
+    const run = async () => {
+      while (next < queue.length) {
+        const { guild, card } = queue[next++];
+        let present = presenceCache.has(guild.id) ? presenceCache.get(guild.id) : null;
+        if (present === null) {
+          try {
+            await discordRequest('GET', `/guilds/${guild.id}`, undefined, undefined, guild.id);
+            present = true;
+          } catch (e) {
+            present = /\b(403|404)\b/.test(e.message) ? false : null;
+          }
+          if (present !== null) presenceCache.set(guild.id, present);
+        }
+        paint(guild, card, present);
+      }
+    };
+    await Promise.all([run(), run(), run(), run(), run(), run()]);
+  });
+}
+
+// Une seule requête au Worker : la liste des serveurs (parmi les tiens) où le bot est présent
+let presenceLoading = null;
+function loadPresence() {
+  if (presenceLoading) return presenceLoading;
+  presenceLoading = (async () => {
+    if (!proxyConfigured()) return false;
+    try {
+      const res = await fetch(`${BOT_PROXY_URL}/__presence`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('discord_token')}` }
+      });
+      if (!res.ok) return false;
+      const d = await res.json();
+      if (!Array.isArray(d.present)) return false;
+      const set = new Set(d.present);
+      userGuilds.forEach(g => presenceCache.set(g.id, set.has(g.id)));
+      return true;
+    } catch (e) { return false; }
+  })();
+  // on garde le résultat 30 s, comme le cache du Worker
+  setTimeout(() => { presenceLoading = null; }, 30000);
+  return presenceLoading;
 }
 
 function selectGuild(id, name) {
@@ -167,6 +201,66 @@ function selectGuild(id, name) {
   switchTab('overview');
 }
 
+// ---------- Configuration des tickets (partagée avec le bot via le Worker) ----------
+async function loadTicketConfig(guildId) {
+  const status = document.getElementById('ticket-cfg-status');
+  if (!status) return;
+  status.textContent = 'Chargement de la configuration…';
+  try {
+    const [cfg, roles] = await Promise.all([
+      discordRequest('GET', `/config/${guildId}/tickets`),
+      discordRequest('GET', `/guilds/${guildId}/roles`)
+    ]);
+    if (!selectedGuild || selectedGuild.id !== guildId) return;
+    guildRolesList = roles.filter(r => r.name !== '@everyone').sort((a, b) => b.position - a.position);
+
+    const fill = (id, items, placeholder, current) => {
+      const sel = document.getElementById(id);
+      sel.innerHTML = '';
+      const none = document.createElement('option'); none.value = ''; none.textContent = placeholder; sel.appendChild(none);
+      items.forEach(it => { const o = document.createElement('option'); o.value = it.id; o.textContent = it.label; sel.appendChild(o); });
+      sel.value = items.some(i => i.id === current) ? current : '';
+    };
+    fill('tcfg-channel', rawChannelsList.map(c => ({ id: c.id, label: `#${c.name}` })), 'Choisis un salon', cfg.requestChannelId);
+    fill('tcfg-role', guildRolesList.map(r => ({ id: r.id, label: `@${r.name}` })), 'Choisis un rôle', cfg.staffRoleId);
+    fill('tcfg-category', allChannelsList.filter(c => c.type === 4).map(c => ({ id: c.id, label: c.name })), 'Aucune catégorie', cfg.categoryId);
+    document.getElementById('tcfg-questions').value = (cfg.questions || []).join('\n');
+    document.getElementById('tcfg-options').value = (cfg.options || []).join('\n');
+    status.textContent = cfg.updatedAt
+      ? `Dernière modification ${formatWhen(cfg.updatedAt)} (${cfg.updatedBy === 'discord' ? 'depuis Discord' : 'depuis le site'}).`
+      : "Pas encore configuré.";
+  } catch (e) {
+    status.textContent = /KV|CONFIG/.test(e.message)
+      ? "Le stockage de configuration n'est pas encore activé sur le Worker (voir BOT-SYNC.md)."
+      : `Configuration indisponible : ${e.message}`;
+  }
+}
+
+async function saveTicketConfig() {
+  if (!selectedGuild) { toast('warn', 'Choisis un serveur', "Sélectionne d'abord un serveur dans « Mes serveurs »."); switchTab('servers'); return; }
+  const lines = id => val(id).split('\n').map(x => x.trim()).filter(Boolean);
+  const questions = lines('tcfg-questions');
+  if (questions.length > 5) { toast('warn', 'Trop de questions', 'Le formulaire accepte 5 questions au maximum.'); return; }
+  if (!val('tcfg-channel')) { toast('warn', 'Choisis un salon', 'Le salon des demandes est obligatoire.'); return; }
+  if (!val('tcfg-role')) { toast('warn', 'Choisis un rôle', 'Le rôle du staff est obligatoire.'); return; }
+  try {
+    const doc = await discordRequest('PUT', `/config/${selectedGuild.id}/tickets`, {
+      requestChannelId: val('tcfg-channel'),
+      staffRoleId: val('tcfg-role'),
+      categoryId: val('tcfg-category'),
+      questions,
+      options: lines('tcfg-options')
+    });
+    toast('ok', 'Tickets configurés', 'Configuration enregistrée.');
+    logActivity(true, 'Tickets configurés', 'Configuration enregistrée depuis le site.');
+    document.getElementById('ticket-cfg-status').textContent = `Dernière modification ${formatWhen(doc.updatedAt)} (depuis le site).`;
+  } catch (e) {
+    toast('error', "L'enregistrement a échoué", e.message, 9000);
+    logActivity(false, 'Tickets configurés', e.message);
+  }
+}
+window.saveTicketConfig = saveTicketConfig;
+
 const DISCORD_API = 'https://discord.com/api/v10';
 
 // Message dans les listes de salons quand on ne peut pas charger les vrais salons
@@ -181,7 +275,7 @@ function setChannelDropdownsMessage(msg) {
 }
 
 async function loadGuildChannels(guildId) {
-  rawChannelsList = [];
+  rawChannelsList = []; allChannelsList = []; guildRolesList = [];
   if (!proxyConfigured()) {
     setChannelDropdownsMessage('⚠️ URL du Worker non configurée dans dashboard.js (BOT_PROXY_URL)');
     return;
@@ -190,8 +284,10 @@ async function loadGuildChannels(guildId) {
 
   try {
     const channels = await discordRequest('GET', `/guilds/${guildId}/channels`);
+    allChannelsList = channels;
     rawChannelsList = channels.filter(c => c.type === 0 || c.type === 5); // textuels + annonces
     populateAllChannelDropdowns(rawChannelsList);
+    loadTicketConfig(guildId);
     if (selectedGuild && selectedGuild.id === guildId) {
       overviewStats.channels = rawChannelsList.length;
       if (overviewStats.roles != null || overviewStats.members != null) renderOverviewMeta();
@@ -335,7 +431,6 @@ const CHANNEL_FIELD = {
   'mode-lent': 'slowmode-channel-select',
   'verrouiller': 'lock-channel-select',
   'deverrouiller': 'lock-channel-select',
-  'ticket-config': 'ticket-req-channel-select',
   'ticket-panneau': 'ticket-panel-channel-select',
   'infos-serveur': 'info-channel-select'
 };
@@ -425,7 +520,6 @@ window.executeBotCommand = async function(cmdName) {
 
       case 'avertir':
       case 'serveur':
-      case 'ticket-config':
         // Ces commandes enregistrent des données dans les fichiers du bot (avertissements, structure créée, config tickets).
         // Les faire depuis le site créerait des données que le bot ne verrait jamais.
         throw new UserInputError(`/${cmdName} doit être lancée directement dans Discord avec le bot : il garde ses données (compteur d'avertissements, annulation, configuration des tickets) de son côté.`);
@@ -507,7 +601,7 @@ window.executeBotCommand = async function(cmdName) {
             components: [{ type: 2, style: 1, label: 'Ouvrir un ticket', emoji: { name: '🎫' }, custom_id: 'ticket:open' }]
           }]
         });
-        okMsg = '✅ Panneau posté. Pour que les tickets marchent, le salon des demandes doit être configuré avec /ticket config dans Discord.';
+        okMsg = '✅ Panneau posté. Pense à enregistrer la configuration des tickets ci-dessus pour que le bouton fonctionne.';
         break;
       }
 
@@ -560,7 +654,7 @@ const COMMAND_LABELS = {
   'say': 'Message envoyé', 'embed': 'Embed posté', 'bannir': 'Membre banni', 'sourdine': 'Membre en sourdine',
   'expulser': 'Membre expulsé', 'nettoyer': 'Salon nettoyé', 'mode-lent': 'Mode lent modifié',
   'verrouiller': 'Salon verrouillé', 'deverrouiller': 'Salon déverrouillé', 'role-creer': 'Rôle créé',
-  'role-ajouter': 'Rôle donné', 'role-retirer': 'Rôle retiré', 'ticket-panneau': 'Panneau de tickets posté',
+  'role-ajouter': 'Rôle donné', 'role-retirer': 'Rôle retiré', 'ticket-panneau': 'Panneau de tickets posté', 'ticket-config': 'Tickets configurés',
   'ping': 'Latence mesurée', 'infos-serveur': 'Statistiques postées'
 };
 
@@ -733,7 +827,7 @@ window.switchCategory = function(cat) {
 function initEventListeners() {
   document.getElementById('btn-refresh-guilds').addEventListener('click', () => {
     const token = localStorage.getItem('discord_token');
-    presenceCache.clear();
+    presenceCache.clear(); presenceLoading = null;
     if (token) { document.getElementById('guilds-loading').classList.remove('hidden'); document.getElementById('guilds-container').classList.add('hidden'); fetchUserGuilds(token); }
   });
   document.getElementById('guild-search').addEventListener('input', e => {

@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>KayRobot – Le bot Discord de modération, tickets et annonces</title>
-  <meta name="description" content="KayRobot modère ton serveur Discord, gère les tickets, programme tes messages et crée la structure du serveur. Commandes en français et tableau de bord web.">
-  <meta property="og:title" content="KayRobot, le bot Discord en français">
+  <title>KayroBot – Le bot Discord de modération, tickets et annonces</title>
+  <meta name="description" content="KayroBot modère ton serveur Discord, gère les tickets, programme tes messages et crée la structure du serveur. Commandes en français et tableau de bord web.">
+  <meta property="og:title" content="KayroBot, le bot Discord en français">
   <meta property="og:description" content="Modération, tickets, messages programmés et tableau de bord web.">
-  <meta property="og:image" content="logo.png">
+  <meta property="og:image" content="https://kayrobot.fr/logo.png">
   <link rel="icon" type="image/png" href="favicon.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -20,7 +20,7 @@
 
 <header class="lp-header">
   <div class="lp-wrap lp-bar">
-    <a class="lp-brand" href="#accueil"><img src="logo.png" alt="" width="36" height="36"> KayRobot</a>
+    <a class="lp-brand" href="#accueil"><img src="logo.png" alt="" width="36" height="36"> KayroBot</a>
     <button class="lp-burger" id="burger" aria-label="Ouvrir le menu" aria-expanded="false"><i class="fa-solid fa-bars"></i></button>
     <nav class="lp-nav" id="nav" aria-label="Navigation principale">
       <a class="link" href="#accueil">Accueil</a>
@@ -44,7 +44,7 @@
     <div class="lp-wrap lp-hero-grid">
       <div>
         <h1>Modère, organise et annonce sans quitter Discord.</h1>
-        <p class="sub">KayRobot s'occupe de la modération, des tickets, des messages programmés et de la structure de ton serveur. Tout se lance en commandes slash, ou depuis un tableau de bord web.</p>
+        <p class="sub">KayroBot s'occupe de la modération, des tickets, des messages programmés et de la structure de ton serveur. Tout se lance en commandes slash, ou depuis un tableau de bord web.</p>
         <div class="lp-actions">
           <a class="btn btn-primary" href="https://discord.com/oauth2/authorize?client_id=1563284812351938611&permissions=8&integration_type=0&scope=bot+applications.commands" target="_blank" rel="noopener"><i class="fa-brands fa-discord"></i> Ajouter à Discord</a>
           <a class="btn btn-ghost" href="#commandes">Voir les commandes</a>
@@ -57,7 +57,7 @@
       </div>
 
       <!-- Maquette Discord : une sanction, comme le bot la affiche -->
-      <div class="chat" role="img" aria-label="Exemple : un modérateur lance la commande bannir et KayRobot répond avec un embed de confirmation">
+      <div class="chat" role="img" aria-label="Exemple : un modérateur lance la commande bannir et KayroBot répond avec un embed de confirmation">
         <div class="chat-head"># modération <span>Sanctions et journal du staff</span></div>
         <div class="chat-body">
           <div class="msg">
@@ -70,7 +70,7 @@
           <div class="msg">
             <img class="av" src="logo.png" alt="" width="40" height="40">
             <div>
-              <div class="who">KayRobot <span class="app-tag">APP</span> <small>Aujourd'hui à 21:06</small></div>
+              <div class="who">KayroBot <span class="app-tag">APP</span> <small>Aujourd'hui à 21:06</small></div>
               <div class="embed">
                 <h4>🔨 Membre banni</h4>
                 <dl>
@@ -91,7 +91,7 @@
           <div class="msg">
             <img class="av" src="logo.png" alt="" width="40" height="40">
             <div>
-              <div class="who">KayRobot <span class="app-tag">APP</span> <small>Aujourd'hui à 21:09</small></div>
+              <div class="who">KayroBot <span class="app-tag">APP</span> <small>Aujourd'hui à 21:09</small></div>
               <div class="embed amber">
                 <h4>🔇 Membre mis en sourdine</h4>
                 <dl><div><dt>Durée</dt><dd>30 minute(s)</dd></div></dl>
@@ -107,7 +107,7 @@
   <section class="lp-section alt" id="fonctionnalites">
     <div class="lp-wrap">
       <div class="lp-head">
-        <h2>Ce que KayRobot fait pour toi</h2>
+        <h2>Ce que KayroBot fait pour toi</h2>
         <p>Les tâches qui prennent du temps quand on gère un serveur, réunies dans un seul bot.</p>
       </div>
 
@@ -187,19 +187,19 @@
       <div class="help-grid">
         <ol class="steps">
           <li><div><strong>Invite le bot</strong><span>Clique sur « Inviter » et choisis ton serveur. Il faut être administrateur.</span></div></li>
-          <li><div><strong>Place son rôle assez haut</strong><span>Dans Paramètres du serveur &gt; Rôles, monte le rôle de KayRobot au-dessus des rôles qu'il doit gérer.</span></div></li>
-          <li><div><strong>Configure ce dont tu as besoin</strong><span>/serveur pour créer la structure, /ticket config pour les tickets, /bump-auto activer pour le rappel de bump.</span></div></li>
+          <li><div><strong>Place son rôle assez haut</strong><span>Dans Paramètres du serveur &gt; Rôles, monte le rôle de KayroBot au-dessus des rôles qu'il doit gérer.</span></div></li>
+          <li><div><strong>Configure ce dont tu as besoin</strong><span>/serveur pour créer la structure, /ticket config (ou le dashboard) pour les tickets, /bump-auto activer pour le rappel de bump.</span></div></li>
           <li><div><strong>Ouvre le dashboard</strong><span>Connecte-toi avec Discord pour gérer ton serveur depuis le navigateur.</span></div></li>
         </ol>
 
         <div class="faq">
           <details>
             <summary>Le bot dit qu'il n'a pas la permission</summary>
-            <p>Son rôle est placé plus bas que celui du membre ou du rôle visé. Monte le rôle de KayRobot dans <b>Paramètres du serveur &gt; Rôles</b>, puis réessaie.</p>
+            <p>Son rôle est placé plus bas que celui du membre ou du rôle visé. Monte le rôle de KayroBot dans <b>Paramètres du serveur &gt; Rôles</b>, puis réessaie.</p>
           </details>
           <details>
             <summary>Le bouton du panneau de tickets répond que rien n'est configuré</summary>
-            <p>Lance <b>/ticket config</b> dans Discord pour choisir le salon où arrivent les demandes et le rôle du staff. Ensuite, poste le panneau avec <b>/ticket panneau</b>.</p>
+            <p>Lance <b>/ticket config</b> dans Discord, ou ouvre l'onglet Tickets du dashboard, pour choisir le salon où arrivent les demandes et le rôle du staff. Ensuite, poste le panneau avec <b>/ticket panneau</b>.</p>
           </details>
           <details>
             <summary>Qui peut utiliser les commandes ?</summary>
@@ -227,7 +227,7 @@
       </div>
       <div class="status-row">
         <div class="status-card"><span class="k">Accès à Discord</span><span class="v" id="st-api">Vérification…</span></div>
-        <div class="status-card"><span class="k">Serveurs où KayRobot est présent</span><span class="v" id="st-guilds">…</span></div>
+        <div class="status-card"><span class="k">Serveurs où KayroBot est présent</span><span class="v" id="st-guilds">…</span></div>
         <div class="status-card"><span class="k">Tableau de bord</span><span class="v ok">Disponible</span></div>
       </div>
     </div>
@@ -239,7 +239,7 @@
       <div class="lp-final">
         <div>
           <h2>Ton serveur mérite un peu moins de corvées.</h2>
-          <p>Invite KayRobot, lance <b>/aide</b> et commence par ce qui te prend le plus de temps.</p>
+          <p>Invite KayroBot, lance <b>/aide</b> et commence par ce qui te prend le plus de temps.</p>
         </div>
         <a class="btn btn-primary" style="padding:15px 24px;font-size:15px" href="https://discord.com/oauth2/authorize?client_id=1563284812351938611&permissions=8&integration_type=0&scope=bot+applications.commands" target="_blank" rel="noopener"><i class="fa-brands fa-discord"></i> Ajouter à Discord</a>
       </div>
@@ -250,7 +250,7 @@
 
 <footer class="lp-footer">
   <div class="lp-wrap">
-    <span>© 2026 KayRobot</span>
+    <span>© 2026 KayroBot</span>
     <nav aria-label="Liens du pied de page">
       <a href="#fonctionnalites">Fonctionnalités</a>
       <a href="#commandes">Commandes</a>

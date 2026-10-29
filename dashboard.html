@@ -3,11 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>KayRobot – Tableau de bord</title>
+  <title>KayroBot – Tableau de bord</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="icon" type="image/png" href="favicon.png">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -16,8 +17,8 @@
   <!-- Barre latérale -->
   <aside class="rail">
     <div class="brand">
-      <div class="logo">K</div>
-      <strong>KayRobot</strong>
+      <img class="logo-img" src="logo.png" alt="" width="38" height="38">
+      <strong>KayroBot</strong>
     </div>
 
     <button id="server-switch" class="server-switch" onclick="switchTab('servers')" title="Changer de serveur">
@@ -275,13 +276,19 @@
             <!-- Tickets -->
             <div id="category-tickets" class="cmd-category-content hidden">
               <div class="cmd-grid">
-                <article class="cmd">
-                  <header><h4>Configuration</h4></header>
-                  <p class="note">À faire dans Discord avec <b>/ticket config</b> : le bot garde le salon des demandes, le rôle staff et les questions de son côté.</p>
+                <article class="cmd sev-ok">
+                  <header><h4>Configuration</h4><p>Équivalent de <b>/ticket config</b>, <b>/ticket questions</b> et <b>/ticket option-ajouter</b>. Le bot lit la même configuration.</p></header>
+                  <label class="field"><span>Salon des demandes</span><select id="tcfg-channel" class="input"><option value="">Choisis un salon</option></select></label>
+                  <label class="field"><span>Rôle du staff</span><select id="tcfg-role" class="input"><option value="">Choisis un rôle</option></select></label>
+                  <label class="field"><span>Catégorie des tickets</span><select id="tcfg-category" class="input"><option value="">Aucune catégorie</option></select></label>
+                  <label class="field"><span>Questions du formulaire (une par ligne, 5 maximum)</span><textarea id="tcfg-questions" class="input" rows="4" placeholder="Quel est ton pseudo ?&#10;Que veux-tu demander ?"></textarea></label>
+                  <label class="field"><span>Types de ticket (un par ligne)</span><textarea id="tcfg-options" class="input" rows="3" placeholder="Support&#10;Partenariat&#10;Recrutement"></textarea></label>
+                  <p class="fine" id="ticket-cfg-status">Choisis un serveur pour voir sa configuration.</p>
+                  <button onclick="saveTicketConfig()" class="btn btn-ok btn-block">Enregistrer la configuration</button>
                 </article>
 
                 <article class="cmd sev-ok">
-                  <header><h4>Poster le panneau</h4><p>Message avec un bouton pour ouvrir un ticket. Fais d'abord <b>/ticket config</b> dans Discord, sinon le bouton répondra que rien n'est configuré.</p></header>
+                  <header><h4>Poster le panneau</h4><p>Message avec un bouton pour ouvrir un ticket. Enregistre d'abord la configuration ci-contre, sinon le bouton répondra que rien n'est configuré.</p></header>
                   <div class="picker">
                     <span class="fine">Salon d'affichage</span>
                     <input type="text" class="input search" placeholder="Rechercher un salon" oninput="filterChannels(this, 'ticket-panel-channel-select')" aria-label="Rechercher un salon">

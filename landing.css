@@ -1,4 +1,4 @@
-/* Page d'accueil KayRobot — s'appuie sur les variables de style.css */
+/* Page d'accueil KayroBot — s'appuie sur les variables de style.css */
 
 html { scroll-behavior: smooth; scroll-padding-top: 84px; }
 .lp-wrap { width: min(1160px, 100% - 48px); margin-inline: auto; }

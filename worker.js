@@ -1,4 +1,4 @@
-// KayRobot proxy (Cloudflare Worker)
+// KayroBot proxy (Cloudflare Worker)
 // - Garde le token du bot en secret (variable BOT_TOKEN), jamais envoyé au navigateur.
 // - Vérifie que l'utilisateur connecté via Discord est admin/owner du serveur ciblé.
 // - Ne laisse passer qu'une liste précise de routes Discord.
@@ -16,7 +16,7 @@ const ROUTES = [
   [['GET', 'POST'], /^\/guilds\/(\d+)\/channels$/, 'guild'],
   [['PUT'], /^\/guilds\/(\d+)\/bans\/\d+$/, 'guild'],
   [['PATCH', 'DELETE'], /^\/guilds\/(\d+)\/members\/\d+$/, 'guild'],
-  [['POST'], /^\/guilds\/(\d+)\/roles$/, 'guild'],
+  [['GET', 'POST'], /^\/guilds\/(\d+)\/roles$/, 'guild'],
   [['PUT', 'DELETE'], /^\/guilds\/(\d+)\/members\/\d+\/roles\/\d+$/, 'guild'],
   [['GET', 'PATCH'], /^\/channels\/(\d+)$/, 'channel'],
   [['GET', 'POST'], /^\/channels\/(\d+)\/messages$/, 'channel'],
@@ -65,8 +65,89 @@ async function userTokenValid(userToken) {
   return res.ok;
 }
 
+
+// ---------- Présence du bot (1 seul appel au lieu d'un par serveur) ----------
+let botGuildsCache = { exp: 0, ids: new Set() };
+
+async function getBotGuildIds(botToken) {
+  if (botGuildsCache.exp > Date.now()) return botGuildsCache.ids;
+  const ids = new Set();
+  let after = '';
+  for (let i = 0; i < 10; i++) { // 10 pages x 200 = 2000 serveurs max
+    const res = await fetch(`${DISCORD}/users/@me/guilds?limit=200${after ? `&after=${after}` : ''}`, {
+      headers: { Authorization: `Bot ${botToken}` }
+    });
+    if (!res.ok) throw new Error(`Discord ${res.status}`);
+    const page = await res.json();
+    page.forEach(g => ids.add(g.id));
+    if (page.length < 200) break;
+    after = page[page.length - 1].id;
+  }
+  botGuildsCache = { exp: Date.now() + 30_000, ids };
+  return ids;
+}
+
+async function getUserAdminGuilds(userToken) {
+  let entry = guildListCache.get(userToken);
+  if (!entry || entry.exp < Date.now()) {
+    const res = await fetch(`${DISCORD}/users/@me/guilds`, { headers: { Authorization: `Bearer ${userToken}` } });
+    if (!res.ok) return null;
+    entry = { exp: Date.now() + 60_000, guilds: await res.json() };
+    guildListCache.set(userToken, entry);
+  }
+  return entry.guilds.filter(g => g.owner || (BigInt(g.permissions) & 8n) === 8n);
+}
+
+// ---------- Configuration partagée site <-> bot (stockée dans Workers KV) ----------
+const SNOWFLAKE = /^\d{15,25}$/;
+
+function cleanTicketConfig(input) {
+  const id = v => (typeof v === 'string' && SNOWFLAKE.test(v.trim()) ? v.trim() : '');
+  const lines = (arr, max, len) => (Array.isArray(arr) ? arr : [])
+    .map(x => String(x).trim().slice(0, len)).filter(Boolean).slice(0, max);
+  return {
+    requestChannelId: id(input.requestChannelId),
+    staffRoleId: id(input.staffRoleId),
+    categoryId: id(input.categoryId),
+    questions: lines(input.questions, 5, 45),
+    options: lines(input.options, 25, 80)
+  };
+}
+
+function kvOrError(env, origin) {
+  if (!env.CONFIG) return json({ message: "Le stockage KV « CONFIG » n'est pas lié au Worker" }, 500, origin);
+  return null;
+}
+
+// Routes réservées au bot (pas d'Origin navigateur) : protégées par la clé BOT_API_KEY
+async function botRoute(request, env, url) {
+  const key = request.headers.get('X-Bot-Key') || '';
+  if (!env.BOT_API_KEY || key.length !== env.BOT_API_KEY.length ||
+      ![...key].every((c, i) => c === env.BOT_API_KEY[i])) {
+    return new Response(JSON.stringify({ message: 'Clé invalide' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
+  }
+  if (!env.CONFIG) return new Response(JSON.stringify({ message: 'KV non lié' }), { status: 500, headers: { 'Content-Type': 'application/json' } });
+  const m = url.pathname.match(/^\/bot\/config\/(\d+)\/tickets$/);
+  if (!m) return new Response(JSON.stringify({ message: 'Route inconnue' }), { status: 404, headers: { 'Content-Type': 'application/json' } });
+  const kvKey = `tickets:${m[1]}`;
+  if (request.method === 'GET') {
+    const raw = await env.CONFIG.get(kvKey);
+    return new Response(raw || 'null', { status: raw ? 200 : 404, headers: { 'Content-Type': 'application/json' } });
+  }
+  if (request.method === 'PUT') {
+    let body; try { body = await request.json(); } catch (e) { body = {}; }
+    const doc = { ...cleanTicketConfig(body), updatedAt: Date.now(), updatedBy: 'discord' };
+    await env.CONFIG.put(kvKey, JSON.stringify(doc));
+    return new Response(JSON.stringify(doc), { headers: { 'Content-Type': 'application/json' } });
+  }
+  return new Response(JSON.stringify({ message: 'Méthode non autorisée' }), { status: 405, headers: { 'Content-Type': 'application/json' } });
+}
+
 export default {
   async fetch(request, env) {
+    const earlyUrl = new URL(request.url);
+    if (earlyUrl.pathname.startsWith('/bot/')) return botRoute(request, env, earlyUrl);
+
     const origin = request.headers.get('Origin') || '';
     if (!ALLOWED_ORIGINS.includes(origin)) {
       return new Response('Origin non autorisée', { status: 403 });
@@ -113,6 +194,55 @@ export default {
         nomDuBot: me.username || null
       }, 200, origin);
     }
+    // Quels serveurs de l'utilisateur ont le bot ? Un seul appel, résultat en cache 30 s.
+    if (path === '/__presence') {
+      const userTok = (request.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '');
+      if (!userTok) return json({ message: 'Non connecté' }, 401, origin);
+      try {
+        const [mine, botIds] = await Promise.all([getUserAdminGuilds(userTok), getBotGuildIds(BOT_TOKEN)]);
+        if (!mine) return json({ message: 'Session Discord invalide' }, 401, origin);
+        return json({ present: mine.filter(g => botIds.has(g.id)).map(g => g.id) }, 200, origin);
+      } catch (e) {
+        return json({ message: `Vérification impossible (${e.message})` }, 502, origin);
+      }
+    }
+
+    // Configuration des tickets partagée avec le bot
+    const cfg = path.match(/^\/config\/(\d+)\/tickets$/);
+    if (cfg) {
+      const gid = cfg[1];
+      const userTok = (request.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '');
+      if (!userTok) return json({ message: 'Non connecté' }, 401, origin);
+      if (!(await isGuildAdmin(userTok, gid))) return json({ message: "Vous n'êtes pas administrateur de ce serveur" }, 403, origin);
+      const kvErr = kvOrError(env, origin); if (kvErr) return kvErr;
+      const kvKey = `tickets:${gid}`;
+
+      if (request.method === 'GET') {
+        const raw = await env.CONFIG.get(kvKey);
+        return json(raw ? JSON.parse(raw) : { requestChannelId: '', staffRoleId: '', categoryId: '', questions: [], options: [] }, 200, origin);
+      }
+      if (request.method === 'PUT') {
+        let body; try { body = await request.json(); } catch (e) { return json({ message: 'JSON invalide' }, 400, origin); }
+        const doc = cleanTicketConfig(body);
+        // Les salons et le rôle doivent exister sur CE serveur
+        const [chRes, roRes] = await Promise.all([
+          fetch(`${DISCORD}/guilds/${gid}/channels`, { headers: { Authorization: `Bot ${BOT_TOKEN}` } }),
+          fetch(`${DISCORD}/guilds/${gid}/roles`, { headers: { Authorization: `Bot ${BOT_TOKEN}` } })
+        ]);
+        if (!chRes.ok || !roRes.ok) return json({ message: "Le bot n'est pas sur ce serveur" }, 403, origin);
+        const channels = await chRes.json(); const roles = await roRes.json();
+        const chOk = (id, types) => !id || channels.some(c => c.id === id && types.includes(c.type));
+        if (!chOk(doc.requestChannelId, [0, 5])) return json({ message: 'Salon des demandes introuvable sur ce serveur' }, 400, origin);
+        if (!chOk(doc.categoryId, [4])) return json({ message: 'Catégorie introuvable sur ce serveur' }, 400, origin);
+        if (doc.staffRoleId && !roles.some(r => r.id === doc.staffRoleId)) return json({ message: 'Rôle staff introuvable sur ce serveur' }, 400, origin);
+        doc.updatedAt = Date.now();
+        doc.updatedBy = 'site';
+        await env.CONFIG.put(kvKey, JSON.stringify(doc));
+        return json(doc, 200, origin);
+      }
+      return json({ message: 'Méthode non autorisée' }, 405, origin);
+    }
+
     const route = ROUTES.find(([methods, re]) => methods.includes(request.method) && re.test(path));
     if (!route) return json({ message: 'Route non autorisée' }, 403, origin);
 
