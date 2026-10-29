@@ -26,7 +26,7 @@ function getBotToken() {
           }
           const doc = await res.json();
           const t = doc.fields && doc.fields.token && doc.fields.token.stringValue;
-          if (t) { botTokenCache = t.trim(); return botTokenCache; }
+          if (t) { botTokenCache = t.trim().replace(/^["']|["']$/g, '').replace(/^Bot\s+/i, '').trim(); return botTokenCache; }
           botTokenErrors.push(`${project} : document trouvé mais champ "token" vide ou absent (champs : ${Object.keys(doc.fields || {}).join(', ') || 'aucun'})`);
         } catch (e) {
           botTokenErrors.push(`${project} : ${e.message}`);
@@ -195,7 +195,12 @@ async function loadGuildChannels(guildId) {
   })
   .catch(err => {
     console.error(err);
-    setChannelDropdownsMessage('❌ Impossible de charger les salons (bot absent du serveur ou token invalide)');
+    let hint = 'erreur réseau/CORS';
+    if (/^401/.test(err.message)) hint = 'token invalide (401) : régénère-le dans le Developer Portal et remets-le dans Firestore';
+    else if (/^403/.test(err.message)) hint = `le bot n'est pas sur ce serveur ou n'a pas accès (403) : invite-le avec le bouton "Ajouter le bot à un serveur"`;
+    else if (/^404/.test(err.message)) hint = 'serveur introuvable pour ce bot (404) : le bot n\'est pas sur ce serveur';
+    else if (/^429/.test(err.message)) hint = 'trop de requêtes (429), réessaie dans quelques secondes';
+    setChannelDropdownsMessage(`❌ ${hint} [${err.message}]`);
   });
 }
 
