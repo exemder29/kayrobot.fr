@@ -231,8 +231,7 @@ async function loadTicketConfig(guildId) {
     document.getElementById('tcfg-channel').value = cfg.requestChannelId || '';
     document.getElementById('tcfg-role').value = cfg.staffRoleId || '';
     document.getElementById('tcfg-category').value = cfg.categoryId || '';
-    document.getElementById('tcfg-questions').value = (cfg.questions || []).join('\n');
-    document.getElementById('tcfg-options').value = (cfg.options || []).join('\n');
+    refreshTicketUi(cfg);
     status.textContent = cfg.updatedAt
       ? `Dernière modification ${formatWhen(cfg.updatedAt)} (${cfg.updatedBy === 'discord' ? 'depuis Discord' : 'depuis le site'}).`
       : 'Pas encore configuré.';
@@ -245,24 +244,40 @@ async function loadTicketConfig(guildId) {
   if (rolesError) status.textContent = rolesError;
 }
 
+// Met à jour les éléments qui dépendent de la config (questions, liste des types à retirer)
+function refreshTicketUi(cfg) {
+  const q = document.getElementById('tcfg-questions');
+  if (q) q.value = (cfg.questions || []).join('\n');
+  const sel = document.getElementById('topt-remove-select');
+  if (sel) fillSelect(sel, (cfg.options || []).map(o => ({ id: o, label: o })), (cfg.options || []).length ? 'Choisis un type' : 'Aucun type de ticket');
+}
+
+// Lit la config à jour, la modifie, puis la réenregistre (évite d'écraser un changement fait dans Discord)
+async function updateTicketCfg(mutate) {
+  const cfg = await discordRequest('GET', `/config/${selectedGuild.id}/tickets`);
+  const next = {
+    requestChannelId: cfg.requestChannelId || '', staffRoleId: cfg.staffRoleId || '', categoryId: cfg.categoryId || '',
+    questions: cfg.questions || [], options: cfg.options || []
+  };
+  mutate(next);
+  const doc = await discordRequest('PUT', `/config/${selectedGuild.id}/tickets`, next);
+  refreshTicketUi(doc);
+  const st = document.getElementById('ticket-cfg-status');
+  if (st) st.textContent = `Dernière modification ${formatWhen(doc.updatedAt)} (depuis le site).`;
+  return doc;
+}
+
+// Nom d'un type sans son emoji de début, en minuscules (pour repérer les doublons)
+const optionLabel = s => s.replace(/^(<a?:\w+:\d+>|\p{Extended_Pictographic}[\p{Extended_Pictographic}\u200d\ufe0f]*)\s*/u, '').trim().toLowerCase();
+
 async function saveTicketConfig() {
   if (!selectedGuild) { toast('warn', 'Choisis un serveur', "Sélectionne d'abord un serveur dans « Mes serveurs »."); switchTab('servers'); return; }
-  const lines = id => val(id).split('\n').map(x => x.trim()).filter(Boolean);
-  const questions = lines('tcfg-questions');
-  if (questions.length > 5) { toast('warn', 'Trop de questions', 'Le formulaire accepte 5 questions au maximum.'); return; }
   if (!val('tcfg-channel')) { toast('warn', 'Choisis un salon', 'Le salon des demandes est obligatoire.'); return; }
   if (!val('tcfg-role')) { toast('warn', 'Choisis un rôle', 'Le rôle du staff est obligatoire.'); return; }
   try {
-    const doc = await discordRequest('PUT', `/config/${selectedGuild.id}/tickets`, {
-      requestChannelId: val('tcfg-channel'),
-      staffRoleId: val('tcfg-role'),
-      categoryId: val('tcfg-category'),
-      questions,
-      options: lines('tcfg-options')
-    });
-    toast('ok', 'Tickets configurés', 'Configuration enregistrée.');
+    await updateTicketCfg(c => { c.requestChannelId = val('tcfg-channel'); c.staffRoleId = val('tcfg-role'); c.categoryId = val('tcfg-category'); });
+    toast('ok', 'Tickets configurés', 'Configuration enregistrée. Le bot l\'applique sous 30 secondes.');
     logActivity(true, 'Tickets configurés', 'Configuration enregistrée depuis le site.');
-    document.getElementById('ticket-cfg-status').textContent = `Dernière modification ${formatWhen(doc.updatedAt)} (depuis le site).`;
   } catch (e) {
     toast('error', "L'enregistrement a échoué", e.message, 9000);
     logActivity(false, 'Tickets configurés', e.message);
@@ -774,6 +789,53 @@ window.executeBotCommand = async function(cmdName) {
         break;
       }
 
+      case 'ticket-option-ajouter': {
+        const names = val('topt-add').split(/[;,\n]/).map(x => x.trim()).filter(Boolean);
+        if (!names.length) throw new UserInputError('Entrez au moins un nom.');
+        const added = [], skipped = [];
+        await updateTicketCfg(c => {
+          for (const n of names) {
+            if (n.length > 100) { skipped.push(`${n.slice(0, 20)}… (100 caractères max)`); continue; }
+            if (c.options.length >= 25) { skipped.push(`${n} (25 types maximum)`); continue; }
+            if (c.options.some(o => optionLabel(o) === optionLabel(n))) { skipped.push(`${n} (existe déjà)`); continue; }
+            c.options.push(n); added.push(n);
+          }
+        });
+        if (!added.length) throw new UserInputError(`Rien d'ajouté : ${skipped.join(', ')}.`);
+        document.getElementById('topt-add').value = '';
+        okMsg = `✅ Ajouté : ${added.join(', ')}.${skipped.length ? `\nIgnoré : ${skipped.join(', ')}.` : ''}\nRepose le panneau pour mettre le menu à jour.`;
+        break;
+      }
+      case 'ticket-option-retirer': {
+        const opt = val('topt-remove-select');
+        if (!opt) throw new UserInputError('Choisis le type à retirer.');
+        await updateTicketCfg(c => { c.options = c.options.filter(o => o !== opt); });
+        okMsg = `🗑️ Retiré : ${opt}.\nRepose le panneau pour mettre le menu à jour.`;
+        break;
+      }
+      case 'ticket-options': {
+        const cfg = await discordRequest('GET', `/config/${selectedGuild.id}/tickets`);
+        refreshTicketUi(cfg);
+        okMsg = (cfg.options || []).length
+          ? `📋 Types de ticket :\n${cfg.options.join('\n')}`
+          : 'ℹ️ Aucun type : le panneau affiche un simple bouton « Créer un ticket ».';
+        break;
+      }
+      case 'ticket-questions': {
+        const qs = val('tcfg-questions').split('\n').map(x => x.trim()).filter(Boolean);
+        if (!qs.length) throw new UserInputError('Entrez au moins une question (ou utilise « Question par défaut »).');
+        if (qs.length > 5) throw new UserInputError('5 questions maximum (limite de Discord).');
+        const tooLong = qs.find(q => q.length > 45);
+        if (tooLong) throw new UserInputError(`« ${tooLong} » fait ${tooLong.length} caractères : 45 maximum par question.`);
+        await updateTicketCfg(c => { c.questions = qs; });
+        okMsg = `✅ ${qs.length} question(s) enregistrée(s). Le bot les applique sous 30 secondes.`;
+        break;
+      }
+      case 'ticket-questions-defaut':
+        await updateTicketCfg(c => { c.questions = []; });
+        okMsg = '✅ Question par défaut rétablie. Le bot l\'applique sous 30 secondes.';
+        break;
+
       case 'ticket-panneau': {
         const title = val('ticket-panel-title') || '🎫 Support';
         await discordRequest('POST', `/channels/${channelId}/messages`, {
@@ -840,7 +902,7 @@ const COMMAND_LABELS = {
   'say': 'Message envoyé', 'embed': 'Embed posté', 'bannir': 'Membre banni', 'sourdine': 'Membre en sourdine',
   'expulser': 'Membre expulsé', 'nettoyer': 'Salon nettoyé', 'mode-lent': 'Mode lent modifié',
   'verrouiller': 'Salon verrouillé', 'deverrouiller': 'Salon déverrouillé', 'role-creer': 'Rôle créé',
-  'role-ajouter': 'Rôle donné', 'role-retirer': 'Rôle retiré', 'ticket-panneau': 'Panneau de tickets posté', 'ticket-config': 'Tickets configurés',
+  'role-ajouter': 'Rôle donné', 'role-retirer': 'Rôle retiré', 'ticket-panneau': 'Panneau de tickets posté', 'ticket-config': 'Tickets configurés', 'ticket-option-ajouter': 'Types de ticket ajoutés', 'ticket-option-retirer': 'Type de ticket retiré', 'ticket-options': 'Types de ticket', 'ticket-questions': 'Questions enregistrées', 'ticket-questions-defaut': 'Question par défaut',
   'ping': 'Latence mesurée', 'infos-serveur': 'Statistiques postées',
   'avertir': 'Membre averti', 'avertissements': 'Avertissements', 'effacer-avertissements': 'Avertissements effacés',
   'programmer': 'Message programmé', 'programmations': 'Messages programmés', 'annuler-programmation': 'Programmation annulée',

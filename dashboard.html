@@ -365,14 +365,38 @@
             <div id="category-tickets" class="cmd-category-content hidden">
               <div class="cmd-grid">
                 <article class="cmd sev-ok">
-                  <header><h4>Configuration</h4><p>Équivalent de <b>/ticket config</b>, <b>/ticket questions</b> et <b>/ticket option-ajouter</b>. Le bot lit la même configuration.</p></header>
+                  <header><h4>Configuration</h4><p>Équivalent de <b>/ticket config</b> : salon des demandes, rôle du staff et catégorie. Le bot lit la même configuration.</p></header>
                   <label class="field"><span>Salon des demandes</span><select id="tcfg-channel" class="input"><option value="">Choisis un salon</option></select></label>
                   <label class="field"><span>Rôle du staff</span><select id="tcfg-role" class="input"><option value="">Choisis un rôle</option></select></label>
                   <label class="field"><span>Catégorie des tickets</span><select id="tcfg-category" class="input"><option value="">Aucune catégorie</option></select></label>
-                  <label class="field"><span>Questions du formulaire (une par ligne, 5 maximum)</span><textarea id="tcfg-questions" class="input" rows="4" placeholder="Quel est ton pseudo ?&#10;Que veux-tu demander ?"></textarea></label>
-                  <label class="field"><span>Types de ticket (un par ligne)</span><textarea id="tcfg-options" class="input" rows="3" placeholder="Support&#10;Partenariat&#10;Recrutement"></textarea></label>
                   <p class="fine" id="ticket-cfg-status">Choisis un serveur pour voir sa configuration.</p>
                   <button onclick="saveTicketConfig()" class="btn btn-ok btn-block">Enregistrer la configuration</button>
+                </article>
+
+                <article class="cmd sev-ok">
+                  <header><h4>Ajouter des types de ticket</h4><p>Équivalent de <b>/ticket option-ajouter</b>. Sépare plusieurs noms par des virgules, et mets un emoji devant si tu veux (ex. 🛠️ Support, 🤝 Partenariat).</p></header>
+                  <label class="field"><span>Nom(s) à ajouter</span><input type="text" id="topt-add" class="input" placeholder="🛠️ Support, 🤝 Partenariat"></label>
+                  <button onclick="executeBotCommand('ticket-option-ajouter')" class="btn btn-ok btn-block">Ajouter</button>
+                </article>
+
+                <article class="cmd sev-mid">
+                  <header><h4>Retirer un type de ticket</h4><p>Équivalent de <b>/ticket option-retirer</b>. La liste vient de la configuration actuelle.</p></header>
+                  <label class="field"><span>Type à retirer</span><select id="topt-remove-select" class="input"><option value="">Choisis un type</option></select></label>
+                  <button onclick="executeBotCommand('ticket-option-retirer')" class="btn btn-warn btn-block">Retirer</button>
+                </article>
+
+                <article class="cmd">
+                  <header><h4>Types de ticket actuels</h4><p>Équivalent de <b>/ticket options</b>. Sans type, le panneau affiche un simple bouton « Créer un ticket ».</p></header>
+                  <button onclick="executeBotCommand('ticket-options')" class="btn btn-ghost btn-block">Afficher la liste</button>
+                </article>
+
+                <article class="cmd">
+                  <header><h4>Questions du formulaire</h4><p>Équivalent de <b>/ticket questions</b>. Une question par ligne, 5 au maximum, 45 caractères chacune.</p></header>
+                  <label class="field"><span>Questions</span><textarea id="tcfg-questions" class="input" rows="4" placeholder="Quel est ton pseudo ?&#10;Que veux-tu demander ?"></textarea></label>
+                  <div class="row">
+                    <button onclick="executeBotCommand('ticket-questions')" class="btn btn-ok btn-block">Enregistrer</button>
+                    <button onclick="executeBotCommand('ticket-questions-defaut')" class="btn btn-ghost btn-block">Question par défaut</button>
+                  </div>
                 </article>
 
                 <article class="cmd sev-ok">
