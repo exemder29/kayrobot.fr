@@ -9,19 +9,21 @@ window.addEventListener('DOMContentLoaded', () => {
 async function verifyAdminCode() {
   const enteredCode = document.getElementById('admin-code-input').value.trim();
   const errorEl = document.getElementById('auth-error');
+  const fail = msg => { errorEl.textContent = msg; errorEl.classList.remove('hidden'); };
   try {
-    const docRef = db.collection('admin').doc('config');
-    const docSnap = await docRef.get();
-    if (docSnap.exists && docSnap.data()?.code) {
-      if (enteredCode === docSnap.data().code) {
-        localStorage.setItem('admin_authenticated', 'true');
-        showAdminPanel();
-        return;
-      }
+    const docSnap = await db.collection('admin').doc('config').get();
+    if (!docSnap.exists) return fail(`Document admin/config introuvable dans le projet Firebase « ${firebaseConfig.projectId} ».`);
+    const valid = docSnap.data()?.code;
+    if (!valid) return fail('Le champ « code » est absent du document admin/config.');
+    if (enteredCode === String(valid).trim()) {
+      localStorage.setItem('admin_authenticated', 'true');
+      showAdminPanel();
+      return;
     }
-    errorEl.classList.remove('hidden');
+    fail('Code incorrect. Réessaie.');
   } catch (err) {
-    errorEl.classList.remove('hidden');
+    // Affiche la vraie cause (règles Firestore, mauvais projet, réseau…)
+    fail(`Erreur Firebase (${err.code || 'inconnue'}) : ${err.message}`);
   }
 }
 
