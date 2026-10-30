@@ -487,31 +487,45 @@ async function loadGuildChannels(guildId) {
 async function checkProxy() {
   const el = document.getElementById('token-state');
   const chip = document.getElementById('bot-chip');
-  const setChip = (ok, text) => { chip.textContent = text; chip.className = `chip ${ok ? 'ok' : 'bad'}`; };
+  const setChip = (ok, text) => { if (chip) { chip.textContent = text; chip.className = `chip ${ok ? 'ok' : 'bad'}`; } };
 
   if (!proxyConfigured()) {
     setChip(false, 'Worker non configuré');
-    el.innerHTML = '<div class="notice error">L\'URL du Worker n\'est pas configurée (BOT_PROXY_URL dans dashboard.js).</div>';
+    if (el) el.innerHTML = '<div class="notice error">L\'URL du Worker n\'est pas configurée (BOT_PROXY_URL dans dashboard.js).</div>';
     return;
   }
   try {
     const res = await fetch(`${BOT_PROXY_URL}/__check`);
     const d = await res.json();
-    const ok = d.discordStatus === 200;
-    setChip(ok, ok ? `${d.nomDuBot} est connecté` : 'Token du bot refusé');
-    el.innerHTML = `<div class="notice ${ok ? '' : 'error'}"></div><pre class="diag"></pre>`;
-    el.querySelector('.notice').textContent = ok
-      ? `Connecté au bot « ${d.nomDuBot} » via le Worker sécurisé.`
-      : 'Discord refuse le token du bot. Vérifie le secret BOT_TOKEN du Worker.';
-    el.querySelector('pre').textContent =
-      `Longueur du token : ${d.longueur} (environ 70 attendu)\n` +
-      `Morceaux : ${d.morceaux} (3 attendus), longueurs ${(d.longueurs || []).join(' / ')}\n` +
-      `ID du bot dans le token : ${d.idDansLeToken || 'illisible'} (attendu : ${CLIENT_ID})\n` +
-      `Réponse de Discord : ${d.discordStatus} ${d.discordMessage || ''}`;
+    const ok = d && d.discordStatus === 200;
+    setChip(ok, ok ? `${d.nomDuBot || 'Bot'} est connecté` : 'Token du bot refusé');
+    if (el) {
+      el.innerHTML = `<div class="notice ${ok ? '' : 'error'}"></div><pre class="diag"></pre>`;
+      el.querySelector('.notice').textContent = ok
+        ? `Connecté au bot « ${d.nomDuBot || 'Bot'} » via le Worker sécurisé.`
+        : (d.discordMessage || 'Discord refuse le token du bot. Vérifie la variable BOT_TOKEN dans Cloudflare.');
+      
+      const len = d.longueur !== undefined ? d.longueur : 0;
+      const cnt = d.morceaux !== undefined ? d.morceaux : 0;
+      const lens = Array.isArray(d.longueurs) ? d.longueurs.join(' / ') : '0';
+      const botId = d.idDansLeToken || 'non détecté';
+      const statusMsg = d.discordStatus ? `${d.discordStatus} ${d.discordMessage || ''}` : 'Erreur Worker/Discord';
+
+      el.querySelector('pre').textContent =
+        `Longueur du token : ${len} (environ 70 attendu)
+` +
+        `Morceaux : ${cnt} (3 attendus), longueurs : ${lens}
+` +
+        `ID du bot dans le token : ${botId} (attendu : ${CLIENT_ID})
+` +
+        `Réponse de Discord : ${statusMsg}`;
+    }
   } catch (e) {
     setChip(false, 'Worker injoignable');
-    el.innerHTML = '<div class="notice error">Le Worker est injoignable.</div><pre class="diag"></pre>';
-    el.querySelector('pre').textContent = e.message;
+    if (el) {
+      el.innerHTML = '<div class="notice error">Le Worker est injoignable.</div><pre class="diag"></pre>';
+      el.querySelector('pre').textContent = e.message;
+    }
   }
 }
 
