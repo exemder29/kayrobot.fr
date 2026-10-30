@@ -1,4 +1,4 @@
-// worker.js - Proxy Cloudflare Worker pour KayroBot (Production / Test)
+// worker.js - Proxy Cloudflare Worker pour KayroBot (Production)
 const ALLOWED_ORIGINS = [
   'https://exemder29.github.io',
   'https://kayrobot.fr',
@@ -33,7 +33,7 @@ async function getBotProfile(botToken) {
   });
   if (!res.ok) throw new Error(`Discord ${res.status}`);
   const data = await res.json();
-  botProfileCache = { exp: Date.now() + 10_000, data }; // Cache de 10s pour éviter le rate-limit
+  botProfileCache = { exp: Date.now() + 15_000, data };
   return data;
 }
 
@@ -45,8 +45,9 @@ async function getBotGuildIds(botToken) {
     const res = await fetch(`${DISCORD}/users/@me/guilds?limit=200${after ? `&after=${after}` : ''}`, {
       headers: { Authorization: `Bot ${botToken}` }
     });
-    if (!res.ok) throw new Error(`Discord ${res.status}`);
+    if (!res.ok) break;
     const page = await res.json();
+    if (!Array.isArray(page)) break;
     page.forEach(g => ids.add(g.id));
     if (page.length < 200) break;
     after = page[page.length - 1].id;
@@ -61,7 +62,9 @@ async function getUserAdminGuilds(userToken) {
   if (!entry || entry.exp < Date.now()) {
     const res = await fetch(`${DISCORD}/users/@me/guilds`, { headers: { Authorization: `Bearer ${userToken}` } });
     if (!res.ok) return null;
-    entry = { exp: Date.now() + 60_000, guilds: await res.json() };
+    const guilds = await res.json();
+    if (!Array.isArray(guilds)) return null;
+    entry = { exp: Date.now() + 60_000, guilds };
     guildListCache.set(userToken, entry);
   }
   return entry.guilds.filter(g => g.owner || (BigInt(g.permissions) & 8n) === 8n);
@@ -101,7 +104,7 @@ export default {
       }
     }
 
-    // Route de statistiques /__stats
+    // Route /__stats
     if (url.pathname === '/__stats') {
       try {
         await getBotProfile(BOT_TOKEN);
@@ -112,7 +115,7 @@ export default {
       }
     }
 
-    // Route de présence /__presence
+    // Route /__presence (Corrigée et fiabilisée)
     if (url.pathname === '/__presence') {
       const userTok = (request.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '');
       if (!userTok) return json({ message: 'Non connecté' }, 401, origin);
@@ -120,9 +123,33 @@ export default {
         const [mine, botIds] = await Promise.all([getUserAdminGuilds(userTok), getBotGuildIds(BOT_TOKEN)]);
         if (!mine) return json({ message: 'Session invalide' }, 401, origin);
         
-        return json({ present: mine.filter(g => botIds.has(g.id)).map(g => g.id) }, 200, origin);
+        const presentIds = mine.filter(g => botIds.has(g.id)).map(g => g.id);
+        return json({ present: presentIds }, 200, origin);
       } catch (e) {
         return json({ message: `Erreur: ${e.message}` }, 502, origin);
+      }
+    }
+
+    // Relais des autres requêtes (canaux, rôles, etc.)
+    const guildId = request.headers.get('X-Guild-Id');
+    const discordPath = url.pathname;
+    
+    if (discordPath.startsWith('/guilds/') || discordPath.startsWith('/channels/') || discordPath.startsWith('/users/')) {
+      try {
+        const discRes = await fetch(`${DISCORD}${discordPath}`, {
+          method: request.method,
+          headers: {
+            Authorization: `Bot ${BOT_TOKEN}`,
+            ...(request.headers.get('Content-Type') ? { 'Content-Type': request.headers.get('Content-Type') } : {}),
+            ...(request.headers.get('X-Audit-Log-Reason') ? { 'X-Audit-Log-Reason': request.headers.get('X-Audit-Log-Reason') } : {})
+          },
+          body: ['GET', 'OPTIONS'].includes(request.method) ? undefined : await request.text()
+        });
+        
+        const data = discRes.status === 204 ? null : await discRes.json().catch(() => null);
+        return json(data, discRes.status, origin);
+      } catch (e) {
+        return json({ message: e.message }, 502, origin);
       }
     }
 
