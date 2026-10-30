@@ -30,7 +30,7 @@ function storedToken() {
 // Va chercher un nouveau token. Si le compte a déjà été autorisé, Discord répond sans rien demander.
 function startLogin() {
   const last = Number(sessionStorage.getItem('kayrobot_login_try')) || 0;
-  if (Date.now() - last < 15_000) { window.location.href = 'index.html'; return; } // évite toute boucle
+  if (Date.now() - last < 15_000) { window.location.href = './'; return; } // évite toute boucle
   sessionStorage.setItem('kayrobot_login_try', String(Date.now()));
   localStorage.removeItem('discord_token');
   localStorage.removeItem('discord_token_exp');
@@ -42,6 +42,8 @@ window.addEventListener('DOMContentLoaded', () => {
   const query = new URLSearchParams(window.location.search);
   const accessToken = hash.get('access_token');
   const authError = hash.get('error') || query.get('error');
+  // Adresse propre : /dashboard au lieu de /dashboard.html (le hash est déjà lu au-dessus)
+  window.history.replaceState({}, document.title, window.location.pathname.replace(/index\.html$/, '').replace(/\.html$/, ''));
 
   if (accessToken) {
     localStorage.setItem('discord_token', accessToken);
@@ -52,13 +54,13 @@ window.addEventListener('DOMContentLoaded', () => {
     window.history.replaceState({}, document.title, window.location.pathname);
   } else if (authError) {
     window.history.replaceState({}, document.title, window.location.pathname);
-    if (authError === 'access_denied') { localStorage.removeItem('discord_remember'); window.location.href = 'index.html'; return; }
+    if (authError === 'access_denied') { localStorage.removeItem('discord_remember'); window.location.href = './'; return; }
     // La reconnexion silencieuse n'a pas abouti : on demande normalement, une seule fois
     if (!sessionStorage.getItem('kayrobot_manual')) {
       sessionStorage.setItem('kayrobot_manual', '1');
       window.location.href = authUrl(false);
     } else {
-      window.location.href = 'index.html';
+      window.location.href = './';
     }
     return;
   }
@@ -1178,5 +1180,5 @@ function logout() {
   localStorage.removeItem('discord_token');
   localStorage.removeItem('discord_token_exp');
   localStorage.removeItem('discord_remember');
-  window.location.href = 'index.html';
+  window.location.href = './';
 }

@@ -14,6 +14,13 @@
   <!-- Firebase SDKs -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script>
+  // Adresse propre : /kayrobot.fr/ au lieu de /kayrobot.fr/index.html (et sans .html pour les autres pages)
+  (function () {
+    var p = location.pathname.replace(/index\.html$/, '').replace(/\.html$/, '');
+    if (p !== location.pathname) history.replaceState(null, '', p + location.search + location.hash);
+  })();
+</script>
 </head>
 <body>
   <main class="center-screen">
@@ -32,7 +39,7 @@
         </label>
         <button onclick="verifyAdminCode()" class="btn btn-primary">Vérifier le code</button>
         <p id="auth-error" class="notice error hidden">Code incorrect. Réessaie.</p>
-        <a href="index.html" class="fine">Retour à l'accueil</a>
+        <a href="./" class="fine">Retour à l'accueil</a>
       </div>
     </section>
 
@@ -45,7 +52,7 @@
       </div>
       <div class="notice">Le token du bot est gardé en secret sur le Worker Cloudflare. Pour le changer, modifie la variable <b>BOT_TOKEN</b> dans Cloudflare.</div>
       <div class="stack">
-        <a href="dashboard.html" class="btn btn-primary">Ouvrir le tableau de bord</a>
+        <a href="dashboard" class="btn btn-primary">Ouvrir le tableau de bord</a>
         <button onclick="logoutAdmin()" class="btn btn-ghost"><i class="fa-solid fa-lock"></i> Verrouiller</button>
       </div>
     </section>

@@ -20,7 +20,7 @@ onAuthStateChanged(auth, (user) => {
   if (user) {
     statusMsg.innerHTML = `<span class="text-green-400 font-semibold"><i class="fa-solid fa-circle-check"></i> Connecté avec Discord (${user.displayName || user.email})</span>. Redirection...`;
     setTimeout(() => {
-      window.location.href = "dashboard.html";
+      window.location.href = "dashboard";
     }, 1000);
   }
 });
@@ -33,7 +33,7 @@ btnDiscord.addEventListener("click", () => {
   signInWithPopup(auth, provider)
     .then((result) => {
       statusMsg.innerHTML = `<span class="text-green-400"><i class="fa-solid fa-check"></i> Bienvenue ${result.user.displayName}!</span>`;
-      window.location.href = "dashboard.html";
+      window.location.href = "dashboard";
     })
     .catch((error) => {
       console.error(error);

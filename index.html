@@ -15,6 +15,13 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="landing.css">
+<script>
+  // Adresse propre : /kayrobot.fr/ au lieu de /kayrobot.fr/index.html (et sans .html pour les autres pages)
+  (function () {
+    var p = location.pathname.replace(/index\.html$/, '').replace(/\.html$/, '');
+    if (p !== location.pathname) history.replaceState(null, '', p + location.search + location.hash);
+  })();
+</script>
 </head>
 <body>
 
@@ -28,7 +35,7 @@
       <a class="link" href="#commandes">Commandes</a>
       <a class="link" href="#aide">Aide</a>
       <a class="link" href="#statut">Statut</a>
-      <a class="link" href="dashboard.html">Dashboard</a>
+      <a class="link" href="dashboard">Dashboard</a>
       <div class="cta">
         <a class="btn btn-ghost btn-small" id="login-link" href="https://discord.com/oauth2/authorize?client_id=1563284812351938611&redirect_uri=https%3A%2F%2Fexemder29.github.io%2Fkayrobot.fr%2Fdashboard.html&response_type=token&scope=identify%20guilds">Connexion</a>
         <a class="btn btn-primary btn-small" href="https://discord.com/oauth2/authorize?client_id=1563284812351938611&permissions=8&integration_type=0&scope=bot+applications.commands" target="_blank" rel="noopener">Inviter</a>
@@ -127,7 +134,7 @@
           <div class="ico"><i class="fa-solid fa-gauge-high"></i></div>
           <h3>Un tableau de bord web</h3>
           <p>Choisis ton serveur, envoie un message, poste un embed ou sanctionne un membre depuis ton navigateur.</p>
-          <a class="btn btn-ghost btn-small" href="dashboard.html" style="justify-self:start">Ouvrir le dashboard</a>
+          <a class="btn btn-ghost btn-small" href="dashboard" style="justify-self:start">Ouvrir le dashboard</a>
         </article>
 
         <article class="tile t2">
@@ -255,8 +262,8 @@
       <a href="#fonctionnalites">Fonctionnalités</a>
       <a href="#commandes">Commandes</a>
       <a href="#aide">Aide</a>
-      <a href="dashboard.html">Dashboard</a>
-      <a href="admin.html">Admin</a>
+      <a href="dashboard">Dashboard</a>
+      <a href="admin">Admin</a>
     </nav>
   </div>
 </footer>
@@ -377,7 +384,7 @@ const BOT_PROXY_URL = 'https://kayrobot-proxy.exem029.workers.dev';
       var link = document.getElementById('login-link');
       var exp = Number(localStorage.getItem('discord_token_exp')) || 0;
       var ok = localStorage.getItem('discord_remember') === '1' || (localStorage.getItem('discord_token') && (!exp || exp > Date.now()));
-      if (link && ok) { link.href = 'dashboard.html'; link.textContent = 'Mon dashboard'; }
+      if (link && ok) { link.href = 'dashboard'; link.textContent = 'Mon dashboard'; }
     } catch (e) {}
   })();
 </script>
