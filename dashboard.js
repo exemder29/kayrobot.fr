@@ -16,6 +16,7 @@ function proxyConfigured() {
 
 // ---------- Connexion Discord : mémorisée, renouvelée en silence ----------
 const REDIRECT_URI = 'https://exemder29.github.io/kayrobot.fr/dashboard.html';
+const IS_MOBILE = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
 const authUrl = silent =>
   `https://discord.com/oauth2/authorize?client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&response_type=token&scope=identify%20guilds${silent ? '&prompt=none' : ''}`;
 
@@ -33,7 +34,7 @@ function startLogin() {
   sessionStorage.setItem('kayrobot_login_try', String(Date.now()));
   localStorage.removeItem('discord_token');
   localStorage.removeItem('discord_token_exp');
-  window.location.href = authUrl(localStorage.getItem('discord_remember') === '1');
+  window.location.href = authUrl(localStorage.getItem('discord_remember') === '1' && !IS_MOBILE);
 }
 
 window.addEventListener('DOMContentLoaded', () => {
@@ -111,6 +112,12 @@ function fetchUserGuilds(token) {
   .catch(err => {
     console.error(err);
     loading.innerHTML = '<p class="text-sm text-discord-red">Erreur lors de la récupération des serveurs.</p>';
+    if (IS_MOBILE) {
+      loading.innerHTML += '<p class="fine" id="guilds-err"></p><p style="margin-top:10px"><button type="button" class="btn btn-primary btn-small" id="btn-guilds-retry">Réessayer</button> <button type="button" class="btn btn-ghost btn-small" id="btn-guilds-relogin">Se reconnecter</button></p>';
+      document.getElementById('guilds-err').textContent = err.message || 'erreur réseau';
+      document.getElementById('btn-guilds-retry').onclick = () => fetchUserGuilds(localStorage.getItem('discord_token') || token);
+      document.getElementById('btn-guilds-relogin').onclick = () => { sessionStorage.removeItem('kayrobot_login_try'); startLogin(); };
+    }
   });
 }
 
@@ -125,7 +132,7 @@ function guildIconUrl(g) {
     : 'https://cdn.discordapp.com/embed/avatars/0.png';
 }
 
-let showAbsentGuilds = false;
+let showAbsentGuilds = IS_MOBILE;
 
 function renderGuilds(guilds) {
   const container = document.getElementById('guilds-container');
@@ -214,7 +221,7 @@ function renderGuilds(guilds) {
             await discordRequest('GET', `/guilds/${guild.id}`, undefined, undefined, guild.id);
             present = true;
           } catch (e) {
-            present = /\b(403|404)\b/.test(e.message) ? false : null;
+            present = IS_MOBILE ? (/code (10004|50001)\)/.test(e.message) ? false : null) : (/\b(403|404)\b/.test(e.message) ? false : null);
           }
           if (present !== null) presenceCache.set(guild.id, present);
         }
