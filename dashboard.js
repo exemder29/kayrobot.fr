@@ -1,3 +1,34 @@
+
+async function resolveUser(input, guildId) {
+  const str = (input || '').trim();
+  if (!str) throw new UserInputError("Veuillez entrer un membre (pseudo ou ID).");
+  
+  // Si c'est déjà un ID Snowflake à 17-20 chiffres
+  if (/^\d{17,20}$/.test(str)) {
+    return str;
+  }
+  
+  // Recherche par pseudo via l'API Discord
+  const query = encodeURIComponent(str.replace(/^@/, ''));
+  try {
+    const members = await discordRequest('GET', `/guilds/${guildId}/members/search?query=${query}&limit=5`);
+    if (Array.isArray(members) && members.length > 0) {
+      // Trouve la meilleure correspondance exacte
+      const exact = members.find(m => 
+        m.user.username.toLowerCase() === str.toLowerCase() || 
+        (m.nick && m.nick.toLowerCase() === str.toLowerCase()) ||
+        (m.user.global_name && m.user.global_name.toLowerCase() === str.toLowerCase())
+      );
+      if (exact) return exact.user.id;
+      return members[0].user.id; // Sinon prend le premier résultat de recherche
+    }
+  } catch (e) {
+    console.error("Erreur de recherche de membre:", e);
+  }
+  
+  throw new UserInputError(`Membre introuvable pour "${str}". Vérifie l'orthographe ou utilise l'ID numérique.`);
+}
+
 const CLIENT_ID = '1563284812351938611';
 // ---------- Diagnostic (affiché sous la liste des serveurs) ----------
 const diagLines = [];
@@ -661,7 +692,7 @@ window.executeBotCommand = async function(cmdName) {
       }
 
       case 'bannir': {
-        const user = requireSnowflake(val('ban-user'), 'ID du membre');
+        const user = await resolveUser(val('ban-user'), guildId);
         const days = parseInt(val('ban-delete-days') || '0', 10);
         const reason = val('ban-reason') || 'Aucune raison';
         if (!(await askConfirm('Bannir ce membre ?', `Le membre ${user} sera banni du serveur et recevra un message privé.`, 'Bannir'))) return;
@@ -672,7 +703,7 @@ window.executeBotCommand = async function(cmdName) {
       }
 
       case 'sourdine': {
-        const user = requireSnowflake(val('timeout-user'), 'ID du membre');
+        const user = await resolveUser(val('timeout-user'), guildId);
         const amount = parseInt(val('timeout-duration'), 10);
         if (!amount || amount < 1) throw new UserInputError('Entrez une durée valide.');
         const mult = { m: 60e3, h: 3600e3, d: 86400e3 }[val('timeout-unit')] || 60e3;
@@ -687,7 +718,7 @@ window.executeBotCommand = async function(cmdName) {
       }
 
       case 'expulser': {
-        const user = requireSnowflake(val('kick-user'), 'ID du membre');
+        const user = await resolveUser(val('kick-user'), guildId);
         const reason = val('kick-reason') || 'Aucune raison';
         if (!(await askConfirm('Expulser ce membre ?', `Le membre ${user} sera expulsé. Il pourra revenir avec une invitation.`, 'Expulser'))) return;
         await tryDM(user, `👢 Tu as été **expulsé** de **${selectedGuild.name}**.\nRaison : ${val('kick-reason') || 'Aucune'}`);
@@ -698,7 +729,7 @@ window.executeBotCommand = async function(cmdName) {
 
 
       case 'avertir': {
-        const user = requireSnowflake(val('warn-user'), 'ID du membre');
+        const user = await resolveUser(val('warn-user'), guildId);
         const reason = val('warn-reason');
         if (!reason) throw new UserInputError('Entrez une raison.');
         okMsg = await botJob('avertir', { userId: user, reason });
@@ -708,7 +739,7 @@ window.executeBotCommand = async function(cmdName) {
         okMsg = await botJob('avertissements', { userId: requireSnowflake(val('warns-user'), 'ID du membre') });
         break;
       case 'effacer-avertissements': {
-        const user = requireSnowflake(val('clearwarns-user'), 'ID du membre');
+        const user = await resolveUser(val('clearwarns-user'), guildId);
         if (!(await askConfirm('Effacer les avertissements ?', `Tous les avertissements du membre ${user} seront supprimés.`, 'Effacer'))) return;
         okMsg = await botJob('effacer-avertissements', { userId: user });
         break;
@@ -749,7 +780,7 @@ window.executeBotCommand = async function(cmdName) {
         break;
 
       case 'debannir': {
-        const user = requireSnowflake(val('unban-user'), "ID de l'utilisateur");
+        const user = await resolveUser(val('unban-user'), guildId);
         await discordRequest('DELETE', `/guilds/${guildId}/bans/${user}`, undefined, `${modName()} : ${val('unban-reason') || 'Aucune raison'}`);
         okMsg = `✅ Utilisateur ${user} débanni.`;
         break;
@@ -813,7 +844,7 @@ window.executeBotCommand = async function(cmdName) {
         break;
       }
       case 'infos-membre': {
-        const user = requireSnowflake(val('minfo-user'), 'ID du membre');
+        const user = await resolveUser(val('minfo-user'), guildId);
         const m = await discordRequest('GET', `/guilds/${guildId}/members/${user}`);
         const created = new Date(Number((BigInt(user) >> 22n) + 1420070400000n));
         const names = (m.roles || []).map(id => { const r = guildRolesList.find(x => x.id === id); return r ? `@${r.name}` : id; });
@@ -1201,3 +1232,58 @@ function logout() {
   localStorage.removeItem('discord_remember');
   window.location.href = './';
 }
+
+
+window.fetchLastMessages = async function() {
+  if (!selectedGuild) {
+    toast('warn', 'Choisis un serveur', "Sélectionne d'abord un serveur dans « Mes serveurs ».");
+    return;
+  }
+  const channelId = val('lastmsg-channel-select');
+  if (!channelId) {
+    toast('warn', 'Choisis un salon', "Sélectionne le salon dont tu veux voir les derniers messages.");
+    return;
+  }
+  
+  const container = document.getElementById('last-messages-list');
+  container.innerHTML = '<div style="padding:10px;text-align:center;"><i class="fa-solid fa-circle-notch fa-spin"></i> Récupération des 10 derniers messages...</div>';
+  
+  try {
+    const messages = await discordRequest('GET', `/channels/${channelId}/messages?limit=10`);
+    if (!Array.isArray(messages) || messages.length === 0) {
+      container.innerHTML = '<div class="empty">Aucun message trouvé dans ce salon.</div>';
+      return;
+    }
+    
+    container.innerHTML = '';
+    messages.forEach(msg => {
+      const card = document.createElement('div');
+      card.style.cssText = 'background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:flex-start;gap:10px;';
+      
+      const author = msg.author || {};
+      const avatarUrl = author.avatar ? `https://cdn.discordapp.com/avatars/${author.id}/${author.avatar}.png` : 'https://cdn.discordapp.com/embed/avatars/0.png';
+      const time = new Date(msg.timestamp).toLocaleString('fr-FR');
+      
+      card.innerHTML = `
+        <div style="display:flex;gap:12px;align-items:flex-start;min-width:0;">
+          <img src="${avatarUrl}" style="width:36px;height:36px;border-radius:50%;flex-shrink:0;">
+          <div style="min-width:0;">
+            <div style="font-weight:700;font-size:14px;color:var(--fg);">
+              ${author.username || 'Inconnu'} <span style="font-weight:400;font-size:11px;color:var(--fg-sub);">(ID: <code>${author.id}</code>)</span>
+            </div>
+            <div style="font-size:11px;color:var(--fg-sub);margin-bottom:4px;">${time}</div>
+            <div style="font-size:13px;word-break:break-word;color:var(--fg);">${msg.content ? msg.content.replace(/</g, "&lt;").replace(/>/g, "&gt;") : '<em>(Pièce jointe / Embed / Message système)</em>'}</div>
+          </div>
+        </div>
+        <button class="btn btn-ghost btn-small" onclick="navigator.clipboard.writeText('${author.id}');toast('ok','ID copié !','L\'ID ${author.id} a été copié.');" title="Copier l'ID pour le sanctionner">
+          <i class="fa-regular fa-copy"></i> Copier ID
+        </button>
+      `;
+      container.appendChild(card);
+    });
+    
+    toast('ok', 'Derniers messages', 'Les 10 derniers messages actifs du salon ont été récupérés.');
+  } catch (e) {
+    container.innerHTML = `<div class="notice error">Impossible de récupérer les messages : ${e.message}</div>`;
+  }
+};
