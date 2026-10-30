@@ -24,6 +24,18 @@ function json(obj, status, origin) {
 }
 
 let botGuildsCache = { exp: 0, ids: new Set() };
+let botProfileCache = { exp: 0, data: null };
+
+async function getBotProfile(botToken) {
+  if (botProfileCache.exp > Date.now() && botProfileCache.data) return botProfileCache.data;
+  const res = await fetch(`${DISCORD}/users/@me`, {
+    headers: { Authorization: `Bot ${botToken}` }
+  });
+  if (!res.ok) throw new Error(`Discord ${res.status}`);
+  const data = await res.json();
+  botProfileCache = { exp: Date.now() + 10_000, data }; // Cache de 10s pour éviter le rate-limit
+  return data;
+}
 
 async function getBotGuildIds(botToken) {
   if (botGuildsCache.exp > Date.now()) return botGuildsCache.ids;
@@ -60,19 +72,15 @@ export default {
     const origin = request.headers.get('Origin') || '';
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors(origin) });
 
-    // Récupération stricte de la variable d'environnement BOT_TOKEN configurée dans Cloudflare
     const BOT_TOKEN = (env.BOT_TOKEN || '').trim().replace(/^Bot\s+/i, '');
     if (!BOT_TOKEN) return json({ message: 'BOT_TOKEN manquant dans les variables Cloudflare' }, 500, origin);
 
     const url = new URL(request.url);
 
-    // Route de diagnostic /__check appelée par le dashboard pour valider le token du bot
+    // Route de diagnostic /__check
     if (url.pathname === '/__check') {
       try {
-        const discRes = await fetch(`${DISCORD}/users/@me`, {
-          headers: { Authorization: `Bot ${BOT_TOKEN}` }
-        });
-        const discData = discRes.ok ? await discRes.json() : null;
+        const discData = await getBotProfile(BOT_TOKEN);
         const parts = BOT_TOKEN.split('.');
         let idFromToken = '';
         try {
@@ -80,26 +88,23 @@ export default {
         } catch (e) {}
 
         return json({
-          discordStatus: discRes.status,
-          discordMessage: discRes.ok ? 'OK' : (discData?.message || discRes.statusText),
-          nomDuBot: discData ? discData.username : 'Inconnu',
+          discordStatus: 200,
+          discordMessage: 'OK',
+          nomDuBot: discData.username,
           longueur: BOT_TOKEN.length,
           morceaux: parts.length,
           longueurs: parts.map(p => p.length),
           idDansLeToken: idFromToken
         }, 200, origin);
       } catch (e) {
-        return json({ discordStatus: 500, discordMessage: e.message }, 200, origin);
+        return json({ discordStatus: 401, discordMessage: e.message }, 200, origin);
       }
     }
 
-    // Route de statistiques globales /__stats
+    // Route de statistiques /__stats
     if (url.pathname === '/__stats') {
       try {
-        const discRes = await fetch(`${DISCORD}/users/@me`, {
-          headers: { Authorization: `Bot ${BOT_TOKEN}` }
-        });
-        if (!discRes.ok) return json({ ok: false }, 200, origin);
+        await getBotProfile(BOT_TOKEN);
         const botIds = await getBotGuildIds(BOT_TOKEN);
         return json({ ok: true, serveurs: botIds.size }, 200, origin);
       } catch (e) {
@@ -107,7 +112,7 @@ export default {
       }
     }
 
-    // Route de vérification de présence du bot sur les serveurs de l'utilisateur
+    // Route de présence /__presence
     if (url.pathname === '/__presence') {
       const userTok = (request.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '');
       if (!userTok) return json({ message: 'Non connecté' }, 401, origin);
