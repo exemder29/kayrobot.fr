@@ -1,30 +1,19 @@
-// Configuration Firebase
-const firebaseConfig = {
-  projectId: "kayrobot-fr"
-};
-
-if (!firebase.apps.length) {
-  firebase.initializeApp(firebaseConfig);
-}
+const firebaseConfig = { projectId: "kayrobot-fr" };
+if (!firebase.apps.length) { firebase.initializeApp(firebaseConfig); }
 const db = firebase.firestore();
 
 window.addEventListener('DOMContentLoaded', () => {
-  if (localStorage.getItem('admin_authenticated') === 'true') {
-    showAdminPanel();
-  }
+  if (localStorage.getItem('admin_authenticated') === 'true') { showAdminPanel(); }
 });
 
 async function verifyAdminCode() {
   const enteredCode = document.getElementById('admin-code-input').value.trim();
   const errorEl = document.getElementById('auth-error');
-
   try {
     const docRef = db.collection('admin').doc('config');
     const docSnap = await docRef.get();
-
     if (docSnap.exists && docSnap.data()?.code) {
-      const validCode = docSnap.data().code;
-      if (enteredCode === validCode) {
+      if (enteredCode === docSnap.data().code) {
         localStorage.setItem('admin_authenticated', 'true');
         showAdminPanel();
         return;
@@ -32,7 +21,6 @@ async function verifyAdminCode() {
     }
     errorEl.classList.remove('hidden');
   } catch (err) {
-    console.error("Erreur d'accès à Firestore :", err);
     errorEl.classList.remove('hidden');
   }
 }

@@ -1,4 +1,4 @@
-// worker.js - Proxy Cloudflare Worker pour KayroBot (Production)
+// worker.js - Proxy Cloudflare Worker pour KayroBot
 const ALLOWED_ORIGINS = [
   'https://exemder29.github.io',
   'https://kayrobot.fr',

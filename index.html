@@ -44,116 +44,21 @@
 </header>
 
 <main>
-
   <section class="lp-hero" id="accueil">
     <div class="lp-wrap lp-hero-grid">
       <div>
         <h1>Modère, organise et annonce sans quitter Discord.</h1>
-        <p class="sub">KayroBot s'occupe de la modération, des tickets, des messages programmés et de la structure de ton serveur. Tout se lance en commandes slash, ou depuis un tableau de bord web.</p>
+        <p class="sub">KayroBot s'occupe de la modération, des tickets, des messages programmés et de la structure de ton serveur.</p>
         <div class="lp-actions">
           <a class="btn btn-primary" href="https://discord.com/oauth2/authorize?client_id=1563284812351938611&permissions=8&integration_type=0&scope=bot+applications.commands" target="_blank" rel="noopener"><i class="fa-brands fa-discord"></i> Ajouter à Discord</a>
-          <a class="btn btn-ghost" href="#commandes">Voir les commandes</a>
-        </div>
-        <div class="lp-proof">
-          <span><i class="fa-solid fa-check"></i> 30 commandes slash</span>
-          <span><i class="fa-solid fa-check"></i> Entièrement en français</span>
-          <span><i class="fa-solid fa-check"></i> Tableau de bord inclus</span>
-        </div>
-      </div>
-
-      <div class="chat" role="img" aria-label="Exemple : un modérateur lance la commande bannir et KayroBot répond avec un embed de confirmation">
-        <div class="chat-head"># modération <span>Sanctions et journal du staff</span></div>
-        <div class="chat-body">
-          <div class="msg">
-            <div class="av">L</div>
-            <div>
-              <div class="who">Léa <small>Aujourd'hui à 21:06</small></div>
-              <div class="cmdline"><b>/bannir</b> membre: @spammeur raison: pub non autorisée</div>
-            </div>
-          </div>
-          <div class="msg">
-            <img class="av" src="logo.png" alt="" width="40" height="40">
-            <div>
-              <div class="who">KayroBot <span class="app-tag">APP</span> <small>Aujourd'hui à 21:06</small></div>
-              <div class="embed">
-                <h4>🔨 Membre banni</h4>
-                <dl>
-                  <div><dt>Membre</dt><dd>spammeur (123456789012345678)</dd></div>
-                  <div><dt>Modérateur</dt><dd>@Léa</dd></div>
-                  <div><dt>Raison</dt><dd>pub non autorisée</dd></div>
-                </dl>
-              </div>
-            </div>
-          </div>
         </div>
       </div>
     </div>
   </section>
-
-  <section class="lp-section alt" id="fonctionnalites">
-    <div class="lp-wrap">
-      <div class="lp-head">
-        <h2>Ce que KayroBot fait pour toi</h2>
-        <p>Les tâches qui prennent du temps quand on gère un serveur, réunies dans un seul bot.</p>
-      </div>
-
-      <div class="bento">
-        <article class="tile t4 hero-tile">
-          <div class="ico"><i class="fa-solid fa-gavel"></i></div>
-          <h3>Une modération complète</h3>
-          <p>Bannir, débannir, expulser, mettre en sourdine, nettoyer un salon, activer le mode lent ou verrouiller un salon.</p>
-        </article>
-
-        <article class="tile t2">
-          <div class="ico"><i class="fa-solid fa-gauge-high"></i></div>
-          <h3>Un tableau de bord web</h3>
-          <p>Choisis ton serveur, envoie un message, poste un embed ou sanctionne un membre depuis ton navigateur.</p>
-          <a class="btn btn-ghost btn-small" href="dashboard" style="justify-self:start">Ouvrir le dashboard</a>
-        </article>
-      </div>
-    </div>
-  </section>
-
-  <section class="lp-section" id="statut">
-    <div class="lp-wrap">
-      <div class="lp-head">
-        <h2>Statut</h2>
-        <p>Vérifié à l'ouverture de cette page.</p>
-      </div>
-      <div class="status-row">
-        <div class="status-card"><span class="k">Accès à Discord</span><span class="v" id="st-api">Vérification…</span></div>
-        <div class="status-card"><span class="k">Serveurs où KayroBot est présent</span><span class="v" id="st-guilds">…</span></div>
-        <div class="status-card"><span class="k">Tableau de bord</span><span class="v ok">Disponible</span></div>
-      </div>
-    </div>
-  </section>
-
 </main>
 
-<footer class="lp-footer">
-  <div class="lp-wrap">
-    <span>© 2026 KayroBot</span>
-    <nav aria-label="Liens du pied de page">
-      <a href="#fonctionnalites">Fonctionnalités</a>
-      <a href="#commandes">Commandes</a>
-      <a href="#aide">Aide</a>
-      <a href="dashboard">Dashboard</a>
-      <a href="admin">Admin</a>
-    </nav>
-  </div>
-</footer>
-
 <script>
-const burger = document.getElementById('burger');
-const nav = document.getElementById('nav');
-if (burger) {
-  burger.addEventListener('click', () => {
-    const open = nav.classList.toggle('open');
-    burger.setAttribute('aria-expanded', open);
-  });
-}
-
-const BOT_PROXY_URL = 'https://test-proxy.exem029.workers.dev';
+const BOT_PROXY_URL = 'https://kayrobot-proxy.exem029.workers.dev';
 (async () => {
   const api = document.getElementById('st-api');
   const guilds = document.getElementById('st-guilds');
