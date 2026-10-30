@@ -94,7 +94,7 @@ export default {
     const BOT_TOKEN = getSecretToken(env);
     const url = new URL(request.url);
 
-    // Diagnostic /__check
+    // Route de diagnostic /__check
     if (url.pathname === '/__check') {
       const parts = BOT_TOKEN ? BOT_TOKEN.split('.') : [];
       let idFromToken = 'Aucun token';
