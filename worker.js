@@ -80,7 +80,7 @@ export default {
 
     const url = new URL(request.url);
 
-    // Diagnostic /__check
+    // Diagnostic - Renvoie TOUJOURS les propriétés attendues par dashboard.js pour éviter les "undefined"
     if (url.pathname === '/__check') {
       let discordStatus = 500;
       let discordMessage = 'Erreur inconnue';
