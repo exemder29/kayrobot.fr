@@ -1,4 +1,4 @@
-// worker.js - Proxy Cloudflare Worker pour KayroBot (Production)
+// worker.js - Proxy Cloudflare Worker pour KayroBot (Production / Test)
 const ALLOWED_ORIGINS = [
   'https://exemder29.github.io',
   'https://kayrobot.fr',
@@ -25,7 +25,6 @@ function json(obj, status, origin) {
 
 let botGuildsCache = { exp: 0, ids: new Set() };
 
-// Récupère les serveurs où le bot est présent
 async function getBotGuildIds(botToken) {
   if (botGuildsCache.exp > Date.now()) return botGuildsCache.ids;
   const ids = new Set();
@@ -61,11 +60,52 @@ export default {
     const origin = request.headers.get('Origin') || '';
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors(origin) });
 
-    // Récupération du token depuis les variables Cloudflare env.BOT_TOKEN
+    // Récupération stricte de la variable d'environnement BOT_TOKEN configurée dans Cloudflare
     const BOT_TOKEN = (env.BOT_TOKEN || '').trim().replace(/^Bot\s+/i, '');
     if (!BOT_TOKEN) return json({ message: 'BOT_TOKEN manquant dans les variables Cloudflare' }, 500, origin);
 
     const url = new URL(request.url);
+
+    // Route de diagnostic /__check appelée par le dashboard pour valider le token du bot
+    if (url.pathname === '/__check') {
+      try {
+        const discRes = await fetch(`${DISCORD}/users/@me`, {
+          headers: { Authorization: `Bot ${BOT_TOKEN}` }
+        });
+        const discData = discRes.ok ? await discRes.json() : null;
+        const parts = BOT_TOKEN.split('.');
+        let idFromToken = '';
+        try {
+          if (parts[0]) idFromToken = atob(parts[0].padEnd(Math.ceil(parts[0].length / 4) * 4, '='));
+        } catch (e) {}
+
+        return json({
+          discordStatus: discRes.status,
+          discordMessage: discRes.ok ? 'OK' : (discData?.message || discRes.statusText),
+          nomDuBot: discData ? discData.username : 'Inconnu',
+          longueur: BOT_TOKEN.length,
+          morceaux: parts.length,
+          longueurs: parts.map(p => p.length),
+          idDansLeToken: idFromToken
+        }, 200, origin);
+      } catch (e) {
+        return json({ discordStatus: 500, discordMessage: e.message }, 200, origin);
+      }
+    }
+
+    // Route de statistiques globales /__stats
+    if (url.pathname === '/__stats') {
+      try {
+        const discRes = await fetch(`${DISCORD}/users/@me`, {
+          headers: { Authorization: `Bot ${BOT_TOKEN}` }
+        });
+        if (!discRes.ok) return json({ ok: false }, 200, origin);
+        const botIds = await getBotGuildIds(BOT_TOKEN);
+        return json({ ok: true, serveurs: botIds.size }, 200, origin);
+      } catch (e) {
+        return json({ ok: false }, 200, origin);
+      }
+    }
 
     // Route de vérification de présence du bot sur les serveurs de l'utilisateur
     if (url.pathname === '/__presence') {
@@ -75,7 +115,6 @@ export default {
         const [mine, botIds] = await Promise.all([getUserAdminGuilds(userTok), getBotGuildIds(BOT_TOKEN)]);
         if (!mine) return json({ message: 'Session invalide' }, 401, origin);
         
-        // Renvoie uniquement les ID des serveurs où le bot est présent
         return json({ present: mine.filter(g => botIds.has(g.id)).map(g => g.id) }, 200, origin);
       } catch (e) {
         return json({ message: `Erreur: ${e.message}` }, 502, origin);
