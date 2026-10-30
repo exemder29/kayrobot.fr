@@ -15,7 +15,7 @@ let guildRolesList = [];
 
 // Les appels au bot passent par le Worker Cloudflare (le token du bot reste secret côté serveur).
 // Colle ici l'URL de ton Worker (sans "/" à la fin), ex : https://kayrobot-proxy.moncompte.workers.dev
-const BOT_PROXY_URL = 'https://kayrobot-proxy.exem029.workers.dev';
+const BOT_PROXY_URL = 'https://test-proxy.exem029.workers.dev';
 
 function proxyConfigured() {
   return /^https:\/\/.+/.test(BOT_PROXY_URL);

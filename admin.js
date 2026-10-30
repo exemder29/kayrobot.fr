@@ -1,9 +1,8 @@
-// Configuration Firebase (Assurez-vous d'adapter avec vos identifiants si besoin, ou utilise la collection Firestore existante)
+// Configuration Firebase
 const firebaseConfig = {
-  projectId: "kayrobot-fr" // Remplacez si besoin par votre ID de projet Firestore
+  projectId: "kayrobot-fr"
 };
 
-// Initialisation Firebase sécurisée
 if (!firebase.apps.length) {
   firebase.initializeApp(firebaseConfig);
 }
@@ -20,34 +19,22 @@ async function verifyAdminCode() {
   const errorEl = document.getElementById('auth-error');
 
   try {
-    // Récupération du document dans Firestore : collection 'admin' -> document 'config'
+    // Récupération du code uniquement dans Firestore (collection 'admin', document 'config')
     const docRef = db.collection('admin').doc('config');
     const docSnap = await docRef.get();
 
-    let validCode = "EZ85//"; // Valeur par défaut correspondant à votre capture Firestore
-
-    if (docSnap.exists) {
-      const data = docSnap.data();
-      if (data && data.code) {
-        validCode = data.code;
+    if (docSnap.exists && docSnap.data()?.code) {
+      const validCode = docSnap.data().code;
+      if (enteredCode === validCode) {
+        localStorage.setItem('admin_authenticated', 'true');
+        showAdminPanel();
+        return;
       }
     }
-
-    if (enteredCode === validCode) {
-      localStorage.setItem('admin_authenticated', 'true');
-      showAdminPanel();
-    } else {
-      errorEl.classList.remove('hidden');
-    }
+    errorEl.classList.remove('hidden');
   } catch (err) {
-    console.error("Erreur Firestore, utilisation du code de secours :", err);
-    // Fallback de sécurité si Firestore est hors-ligne
-    if (enteredCode === "EZ85//") {
-      localStorage.setItem('admin_authenticated', 'true');
-      showAdminPanel();
-    } else {
-      errorEl.classList.remove('hidden');
-    }
+    console.error("Erreur d'accès à Firestore :", err);
+    errorEl.classList.remove('hidden');
   }
 }
 

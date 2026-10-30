@@ -180,7 +180,7 @@
       </div>
       <div class="cmd-tabs" role="tablist" aria-label="Catégories de commandes" id="cmd-tabs"></div>
       <div class="cmd-list" id="cmd-list" role="tabpanel"></div>
-      <p class="lp-note">Besoin du détail dans Discord ? Lance <b>/aide</b> pour la liste, ou <b>/aide-plus</b> pour une phrase d'explication par commande.</p>
+      <p class="lp-note">Les paramètres indiqués résument les champs et réglages identifiables depuis le site. Les options exactes proposées par Discord peuvent varier selon la commande et restent visibles dans son menu de saisie. Lance <b>/aide</b> pour la liste, ou <b>/aide-plus</b> pour une explication par commande.</p>
     </div>
   </section>
 
@@ -281,57 +281,57 @@ nav.addEventListener('click', e => { if (e.target.closest('a')) nav.classList.re
 // ---------- Commandes ----------
 const COMMANDS = {
   'Modération': [
-    ['/bannir', 'Bannit un membre. Tu peux effacer ses messages des 7 derniers jours.'],
-    ['/debannir', "Débannit un utilisateur à partir de son ID."],
-    ['/expulser', 'Expulse un membre, qui peut revenir avec une invitation.'],
-    ['/sourdine', "Rend un membre muet pendant une durée donnée, jusqu'à 28 jours."],
-    ['/fin-sourdine', "Retire la sourdine d'un membre."],
-    ['/avertir', "Enregistre un avertissement. Au troisième, sourdine automatique d'une heure."],
-    ['/avertissements', "Affiche les avertissements d'un membre."],
-    ['/effacer-avertissements', "Efface les avertissements d'un membre (administrateur)."],
-    ['/deconnecter', "Déconnecte un membre de son salon vocal."],
-    ['/deplacer', "Déplace un membre vers un autre salon vocal."]
+    ['/bannir', 'Bannit un membre et peut supprimer une partie de ses messages.', 'membre · raison · jours de messages à supprimer (0, 1 ou 7)'],
+    ['/debannir', 'Débannit un utilisateur à partir de son identifiant Discord.', 'identifiant utilisateur · raison (facultative)'],
+    ['/expulser', 'Expulse un membre, qui pourra revenir avec une invitation.', 'membre · raison (facultative)'],
+    ['/sourdine', 'Empêche un membre d’écrire et de parler pendant une durée donnée (28 jours maximum).', 'membre · durée · unité (minutes, heures ou jours) · raison'],
+    ['/fin-sourdine', 'Retire la sourdine d’un membre.', 'membre'],
+    ['/avertir', 'Enregistre un avertissement et prévient le membre. Au troisième avertissement, une sourdine automatique d’une heure est appliquée.', 'membre · raison'],
+    ['/avertissements', 'Affiche les avertissements enregistrés pour un membre.', 'membre'],
+    ['/effacer-avertissements', 'Efface les avertissements d’un membre (administrateur).', 'membre'],
+    ['/deconnecter', 'Déconnecte un membre de son salon vocal.', 'membre · raison (facultative)'],
+    ['/deplacer', 'Déplace un membre vers un autre salon vocal.', 'membre · salon vocal de destination']
   ],
   'Messages': [
-    ['/say', 'Fait parler le bot dans le salon de ton choix.'],
-    ['/embed', 'Envoie une annonce mise en forme, avec titre, texte et couleur.'],
-    ['/programmer', 'Programme un message à une date et une heure précises.'],
-    ['/programmations', 'Liste les messages programmés du serveur.'],
-    ['/annuler-programmation', 'Annule un message programmé.'],
-    ['/bump-auto', 'Active, arrête ou vérifie le rappel de bump toutes les 2 heures.'],
-    ['/apparence', 'Change le nom et la photo du bot dans ses messages.']
+    ['/say', 'Fait parler KayroBot dans le salon de ton choix.', 'salon · message'],
+    ['/embed', 'Publie une annonce mise en forme avec titre, texte et couleur.', 'salon · titre · description · couleur · image (facultative)'],
+    ['/programmer', 'Programme un message pour une date et une heure précises (heure de Paris).', 'salon · message · date · heure'],
+    ['/programmations', 'Affiche les messages programmés sur le serveur.', 'aucune option obligatoire'],
+    ['/annuler-programmation', 'Annule un message programmé.', 'identifiant de la programmation'],
+    ['/bump-auto', 'Active, arrête ou vérifie le rappel automatique de bump toutes les deux heures.', 'action : activer · arrêter · état ; rôle à mentionner (selon action)'],
+    ['/apparence', 'Personnalise le nom et l’avatar affichés par le bot dans ses messages.', 'nom · URL de la photo (ou pièce jointe selon Discord)']
   ],
   'Salons': [
-    ['/nettoyer', "Supprime jusqu'à 100 messages, ou seulement ceux d'un membre."],
-    ['/mode-lent', 'Règle le délai entre deux messages, de 0 à 6 heures.'],
-    ['/verrouiller', "Empêche tout le monde d'écrire dans le salon."],
-    ['/deverrouiller', "Rend le droit d'écrire dans le salon."]
+    ['/nettoyer', 'Supprime jusqu’à 100 messages, éventuellement ceux d’un membre précis.', 'quantité · membre (facultatif)'],
+    ['/mode-lent', 'Règle le délai entre deux messages, de 0 à 6 heures.', 'durée en secondes · salon (facultatif)'],
+    ['/verrouiller', 'Empêche les membres d’écrire dans le salon.', 'salon (facultatif) · raison (facultative)'],
+    ['/deverrouiller', 'Rétablit le droit d’écrire dans le salon.', 'salon (facultatif)'],
+    ['/serveur', 'Crée automatiquement une structure de catégories et de salons publics, privés, vocaux, tickets et staff.', 'configuration/structure proposée par le bot'],
+    ['/serveur-annuler', 'Annule la dernière création faite par /serveur et supprime les éléments créés.', 'aucune option obligatoire']
   ],
   'Rôles': [
-    ['/role creer', 'Crée un rôle, avec ses permissions et sa position.'],
-    ['/role modifier', "Change le nom, la couleur, les permissions ou la position d'un rôle."],
-    ['/role supprimer', 'Supprime un rôle du serveur.'],
-    ['/role ajouter', 'Donne un rôle à un membre, qui garde les autres.'],
-    ['/role retirer', 'Retire un rôle à un membre.'],
-    ['/role remplacer', 'Remplace un rôle par un autre chez un membre.'],
-    ['/role voir', 'Affiche les rôles. Accessible à tout le monde.']
+    ['/role creer', 'Crée un rôle avec ses permissions et sa position.', 'nom · couleur · permissions · position (selon options proposées)'],
+    ['/role modifier', 'Modifie le nom, la couleur, les permissions ou la position d’un rôle.', 'rôle · nom / couleur / permissions / position'],
+    ['/role supprimer', 'Supprime un rôle du serveur.', 'rôle'],
+    ['/role ajouter', 'Attribue un rôle à un membre sans retirer ses autres rôles.', 'membre · rôle'],
+    ['/role retirer', 'Retire un rôle à un membre.', 'membre · rôle'],
+    ['/role remplacer', 'Remplace un rôle par un autre chez un membre.', 'membre · rôle à retirer · rôle à ajouter'],
+    ['/role voir', 'Affiche la liste des rôles du serveur.', 'aucune option obligatoire']
   ],
   'Tickets': [
-    ['/ticket panneau', 'Poste le panneau pour que les membres ouvrent un ticket.'],
-    ['/ticket config', 'Choisit le salon des demandes, le rôle du staff et la catégorie.'],
-    ['/ticket questions', 'Définit les questions du formulaire, 5 au maximum.'],
-    ['/ticket option-ajouter', 'Ajoute un type de ticket au menu du panneau.'],
-    ['/ticket option-retirer', 'Retire un type de ticket.'],
-    ['/ticket options', 'Liste les types de ticket.']
+    ['/ticket panneau', 'Publie le panneau permettant aux membres d’ouvrir une demande.', 'salon de publication'],
+    ['/ticket config', 'Configure le salon de réception, le rôle du staff et la catégorie des tickets.', 'salon de réception · rôle staff · catégorie'],
+    ['/ticket questions', 'Définit jusqu’à cinq questions pour le formulaire de ticket.', 'questions (jusqu’à 5)'],
+    ['/ticket option-ajouter', 'Ajoute un type de demande au menu du panneau.', 'nom · description · emoji (si proposé)'],
+    ['/ticket option-retirer', 'Retire un type de demande du menu.', 'type de ticket'],
+    ['/ticket options', 'Liste les types de tickets actuellement configurés.', 'aucune option obligatoire']
   ],
   'Infos et outils': [
-    ['/infos-membre', "Affiche les infos d'un membre."],
-    ['/infos-serveur', 'Affiche les infos du serveur.'],
-    ['/ping', 'Mesure la latence du bot.'],
-    ['/serveur', 'Crée les catégories et salons du serveur en une fois.'],
-    ['/serveur-annuler', "Annule /serveur et supprime ce qu'il a créé."],
-    ['/aide', 'Liste des commandes.'],
-    ['/aide-plus', 'Toutes les commandes, avec une phrase pour chacune.']
+    ['/infos-membre', 'Affiche les informations d’un membre.', 'membre'],
+    ['/infos-serveur', 'Affiche les informations du serveur.', 'aucune option obligatoire'],
+    ['/ping', 'Mesure la latence de KayroBot.', 'aucune option obligatoire'],
+    ['/aide', 'Affiche la liste des commandes disponibles.', 'aucune option obligatoire'],
+    ['/aide-plus', 'Affiche les commandes avec une courte explication.', 'aucune option obligatoire']
   ]
 };
 
@@ -341,12 +341,17 @@ const list = document.getElementById('cmd-list');
 function showCategory(name) {
   tabs.querySelectorAll('button').forEach(b => b.setAttribute('aria-selected', b.dataset.cat === name));
   list.innerHTML = '';
-  COMMANDS[name].forEach(([cmd, desc]) => {
-    const item = document.createElement('div');
+  COMMANDS[name].forEach(([cmd, desc, options]) => {
+    const item = document.createElement('article');
     item.className = 'cmd-item';
+    const top = document.createElement('div'); top.className = 'cmd-item-top';
     const code = document.createElement('code'); code.textContent = cmd;
-    const span = document.createElement('span'); span.textContent = desc;
-    item.append(code, span);
+    const span = document.createElement('span'); span.className = 'cmd-description'; span.textContent = desc;
+    const meta = document.createElement('div'); meta.className = 'cmd-options';
+    const label = document.createElement('b'); label.textContent = 'Options';
+    const detail = document.createElement('span'); detail.textContent = options;
+    top.append(code, span); meta.append(label, detail);
+    item.append(top, meta);
     list.appendChild(item);
   });
 }
@@ -361,7 +366,7 @@ Object.keys(COMMANDS).forEach((name, i) => {
 showCategory('Modération');
 
 // ---------- Statut (via le Worker) ----------
-const BOT_PROXY_URL = 'https://kayrobot-proxy.exem029.workers.dev';
+const BOT_PROXY_URL = 'https://test-proxy.exem029.workers.dev';
 (async () => {
   const api = document.getElementById('st-api');
   const guilds = document.getElementById('st-guilds');
