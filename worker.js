@@ -80,31 +80,39 @@ export default {
 
     const url = new URL(request.url);
 
-    // Route de diagnostic /__check
+    // Diagnostic - Renvoie TOUJOURS les propriétés attendues par dashboard.js pour éviter les "undefined"
     if (url.pathname === '/__check') {
+      let discordStatus = 500;
+      let discordMessage = 'Erreur inconnue';
+      let nomDuBot = 'Inconnu';
+      
+      const parts = BOT_TOKEN.split('.');
+      let idFromToken = '';
+      try {
+        if (parts[0]) idFromToken = atob(parts[0].padEnd(Math.ceil(parts[0].length / 4) * 4, '='));
+      } catch (e) {}
+
       try {
         const discData = await getBotProfile(BOT_TOKEN);
-        const parts = BOT_TOKEN.split('.');
-        let idFromToken = '';
-        try {
-          if (parts[0]) idFromToken = atob(parts[0].padEnd(Math.ceil(parts[0].length / 4) * 4, '='));
-        } catch (e) {}
-
-        return json({
-          discordStatus: 200,
-          discordMessage: 'OK',
-          nomDuBot: discData.username,
-          longueur: BOT_TOKEN.length,
-          morceaux: parts.length,
-          longueurs: parts.map(p => p.length),
-          idDansLeToken: idFromToken
-        }, 200, origin);
+        discordStatus = 200;
+        discordMessage = 'OK';
+        nomDuBot = discData.username;
       } catch (e) {
-        return json({ discordStatus: 401, discordMessage: e.message }, 200, origin);
+        discordStatus = 401;
+        discordMessage = e.message;
       }
+
+      return json({
+        discordStatus,
+        discordMessage,
+        nomDuBot,
+        longueur: BOT_TOKEN.length,
+        morceaux: parts.length,
+        longueurs: parts.map(p => p.length),
+        idDansLeToken: idFromToken
+      }, 200, origin);
     }
 
-    // Route /__stats
     if (url.pathname === '/__stats') {
       try {
         await getBotProfile(BOT_TOKEN);
@@ -115,26 +123,21 @@ export default {
       }
     }
 
-    // Route /__presence (Corrigée et fiabilisée)
     if (url.pathname === '/__presence') {
       const userTok = (request.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '');
       if (!userTok) return json({ message: 'Non connecté' }, 401, origin);
       try {
         const [mine, botIds] = await Promise.all([getUserAdminGuilds(userTok), getBotGuildIds(BOT_TOKEN)]);
         if (!mine) return json({ message: 'Session invalide' }, 401, origin);
-        
-        const presentIds = mine.filter(g => botIds.has(g.id)).map(g => g.id);
-        return json({ present: presentIds }, 200, origin);
+        return json({ present: mine.filter(g => botIds.has(g.id)).map(g => g.id) }, 200, origin);
       } catch (e) {
         return json({ message: `Erreur: ${e.message}` }, 502, origin);
       }
     }
 
-    // Relais des autres requêtes (canaux, rôles, etc.)
-    const guildId = request.headers.get('X-Guild-Id');
-    const discordPath = url.pathname;
-    
-    if (discordPath.startsWith('/guilds/') || discordPath.startsWith('/channels/') || discordPath.startsWith('/users/')) {
+    // Relais dynamique Discord
+    const discordPath = url.pathname + url.search;
+    if (url.pathname.startsWith('/guilds/') || url.pathname.startsWith('/channels/') || url.pathname.startsWith('/users/')) {
       try {
         const discRes = await fetch(`${DISCORD}${discordPath}`, {
           method: request.method,
