@@ -1,4 +1,4 @@
-// worker.js - Proxy Cloudflare Worker pour KayroBot
+// worker.js - Proxy Cloudflare Worker pour KayroBot (Production)
 const ALLOWED_ORIGINS = [
   'https://exemder29.github.io',
   'https://kayrobot.fr',
@@ -23,22 +23,6 @@ function json(obj, status, origin) {
   });
 }
 
-function getSecretToken(env) {
-  if (!env) return '';
-  const possibleKeys = ['BOT_TOKEN', 'bot_token', 'bot-token', 'TOKEN', 'DISCORD_TOKEN', 'BOT_WORKER'];
-  for (const k of possibleKeys) {
-    if (env[k] && typeof env[k] === 'string' && env[k].trim()) {
-      return env[k].trim().replace(/^Bot\s+/i, '');
-    }
-  }
-  for (const [k, v] of Object.entries(env)) {
-    if (typeof v === 'string' && v.trim() && (k.toLowerCase().includes('token') || k.toLowerCase().includes('bot'))) {
-      return v.trim().replace(/^Bot\s+/i, '');
-    }
-  }
-  return '';
-}
-
 let botGuildsCache = { exp: 0, ids: new Set() };
 let botProfileCache = { exp: 0, data: null };
 
@@ -47,7 +31,7 @@ async function getBotProfile(botToken) {
   const res = await fetch(`${DISCORD}/users/@me`, {
     headers: { Authorization: `Bot ${botToken}` }
   });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  if (!res.ok) throw new Error(`Discord ${res.status}`);
   const data = await res.json();
   botProfileCache = { exp: Date.now() + 15_000, data };
   return data;
@@ -91,34 +75,21 @@ export default {
     const origin = request.headers.get('Origin') || '';
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors(origin) });
 
-    const BOT_TOKEN = getSecretToken(env);
+    const BOT_TOKEN = (env.BOT_TOKEN || '').trim().replace(/^Bot\s+/i, '');
+    if (!BOT_TOKEN) return json({ message: 'BOT_TOKEN manquant dans les variables Cloudflare' }, 500, origin);
+
     const url = new URL(request.url);
 
-    // Route de diagnostic /__check
     if (url.pathname === '/__check') {
-      const parts = BOT_TOKEN ? BOT_TOKEN.split('.') : [];
-      let idFromToken = 'Aucun token';
-      try {
-        if (parts[0]) idFromToken = atob(parts[0].padEnd(Math.ceil(parts[0].length / 4) * 4, '='));
-      } catch (e) {
-        idFromToken = 'Format invalide';
-      }
-
-      if (!BOT_TOKEN) {
-        return json({
-          discordStatus: 500,
-          discordMessage: 'Variable BOT_TOKEN non trouvée dans Cloudflare',
-          nomDuBot: 'Inconnu',
-          longueur: 0,
-          morceaux: 0,
-          longueurs: [],
-          idDansLeToken: 'Non configuré'
-        }, 200, origin);
-      }
-
       let discordStatus = 500;
       let discordMessage = 'Erreur inconnue';
       let nomDuBot = 'Inconnu';
+      
+      const parts = BOT_TOKEN.split('.');
+      let idFromToken = '';
+      try {
+        if (parts[0]) idFromToken = atob(parts[0].padEnd(Math.ceil(parts[0].length / 4) * 4, '='));
+      } catch (e) {}
 
       try {
         const discData = await getBotProfile(BOT_TOKEN);
@@ -140,8 +111,6 @@ export default {
         idDansLeToken: idFromToken
       }, 200, origin);
     }
-
-    if (!BOT_TOKEN) return json({ message: 'BOT_TOKEN manquant dans Cloudflare' }, 500, origin);
 
     if (url.pathname === '/__stats') {
       try {
@@ -165,7 +134,6 @@ export default {
       }
     }
 
-    // Relais dynamique Discord
     const discordPath = url.pathname + url.search;
     if (url.pathname.startsWith('/guilds/') || url.pathname.startsWith('/channels/') || url.pathname.startsWith('/users/')) {
       try {

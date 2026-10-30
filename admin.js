@@ -19,7 +19,6 @@ async function verifyAdminCode() {
   const errorEl = document.getElementById('auth-error');
 
   try {
-    // Récupération du code uniquement dans Firestore (collection 'admin', document 'config')
     const docRef = db.collection('admin').doc('config');
     const docSnap = await docRef.get();
 
