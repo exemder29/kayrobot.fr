@@ -1,4 +1,11 @@
 const CLIENT_ID = '1563284812351938611';
+// ---------- Diagnostic (affiché sous la liste des serveurs) ----------
+const diagLines = [];
+function dlog(msg) {
+  diagLines.push(msg);
+  const el = document.getElementById('diag-out');
+  if (el) el.textContent = diagLines.join('\n');
+}
 let userGuilds = [];
 let selectedGuild = null;
 let currentUserId = '';
@@ -68,6 +75,9 @@ window.addEventListener('DOMContentLoaded', () => {
   const token = storedToken();
   if (!token) { startLogin(); return; }
 
+  { const exp = Number(localStorage.getItem('discord_token_exp')) || 0;
+    dlog(`Appareil : ${IS_MOBILE ? 'mobile' : 'ordinateur'} | page : ${location.origin}${location.pathname}`);
+    dlog(`Token Discord : présent${exp ? `, expire dans ${Math.round((exp - Date.now()) / 3600000)} h` : ''}`); }
   // Vérifier le Worker (affiche seulement son état)
   checkProxy();
 
@@ -79,6 +89,7 @@ function initDashboard(token) {
   const headers = { Authorization: `Bearer ${token}` };
   // Profil, serveurs et présence du bot partent en même temps
   fetch('https://discord.com/api/users/@me', { headers }).then(res => {
+    dlog(`Discord /users/@me : HTTP ${res.status}`);
     if (res.status === 401) { const e = new Error('Session expirée'); e.expired = true; throw e; }
     if (!res.ok) throw new Error(`Discord a répondu ${res.status}`);
     return res.json();
@@ -103,16 +114,19 @@ function fetchUserGuilds(token) {
     headers: { Authorization: `Bearer ${token}` }
   })
   .then(res => {
+    dlog(`Discord /users/@me/guilds : HTTP ${res.status}`);
     if (res.status === 401) { startLogin(); throw new Error('Session expirée'); }
     if (!res.ok) throw new Error('Token Discord invalide ou expiré');
     return res.json();
   })
   .then(guilds => {
     userGuilds = guilds.filter(g => g.owner || (parseInt(g.permissions) & 0x8) === 0x8);
+    dlog(`Serveurs du compte : ${guilds.length}, dont ${userGuilds.length} où tu es admin/propriétaire`);
     renderGuilds(userGuilds);
   })
   .catch(err => {
     console.error(err);
+    dlog(`ERREUR liste des serveurs : ${err.message}`);
     loading.innerHTML = '<p class="text-sm text-discord-red">Erreur lors de la récupération des serveurs.</p>';
     if (IS_MOBILE) {
       loading.innerHTML += '<p class="fine" id="guilds-err"></p><p style="margin-top:10px"><button type="button" class="btn btn-primary btn-small" id="btn-guilds-retry">Réessayer</button> <button type="button" class="btn btn-ghost btn-small" id="btn-guilds-relogin">Se reconnecter</button></p>';
@@ -212,6 +226,7 @@ function renderGuilds(guilds) {
       queue.forEach(({ guild, card }) => paint(guild, card, presenceCache.get(guild.id) === true));
       return finish();
     }
+    dlog('Repli : vérification serveur par serveur');
     // Repli (Worker pas encore mis à jour) : vérification serveur par serveur, 6 à la fois
     let next = 0;
     const run = async () => {
@@ -224,6 +239,8 @@ function renderGuilds(guilds) {
             present = true;
           } catch (e) {
             present = IS_MOBILE ? (/code (10004|50001)\)/.test(e.message) ? false : null) : (/\b(403|404)\b/.test(e.message) ? false : null);
+            dlog.n = (dlog.n || 0) + 1;
+            if (dlog.n <= 3) dlog(`  /guilds/${guild.id} : ${e.message}`);
           }
           if (present !== null) presenceCache.set(guild.id, present);
         }
@@ -256,13 +273,15 @@ function loadPresence() {
       const res = await fetch(`${BOT_PROXY_URL}/__presence`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('discord_token')}` }
       });
-      if (!res.ok) return false;
+      dlog(`Worker /__presence : HTTP ${res.status}`);
+      if (!res.ok) { let m = ''; try { m = (await res.text()).slice(0, 200); } catch (e) {} dlog(`  réponse : ${m}`); return false; }
       const d = await res.json();
-      if (!Array.isArray(d.present)) return false;
+      if (!Array.isArray(d.present)) { dlog('  réponse inattendue du Worker'); return false; }
+      dlog(`  bot présent sur ${d.present.length} de tes serveurs`);
       const set = new Set(d.present);
       userGuilds.forEach(g => presenceCache.set(g.id, set.has(g.id)));
       return true;
-    } catch (e) { return false; }
+    } catch (e) { dlog(`Worker /__presence injoignable : ${e.message} (URL ${BOT_PROXY_URL})`); return false; }
   })();
   // on garde le résultat 30 s, comme le cache du Worker
   setTimeout(() => { presenceLoading = null; }, 30000);
