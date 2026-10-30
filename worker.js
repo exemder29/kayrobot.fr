@@ -80,9 +80,20 @@ export default {
 
     const url = new URL(request.url);
 
+<<<<<<< HEAD
     // Diagnostic
+=======
+    // Diagnostic - Renvoie TOUJOURS les propriétés attendues par dashboard.js pour éviter les "undefined"
+>>>>>>> 0b203cdd944ec556414fc38373273abda68c2d6b
     if (url.pathname === '/__check') {
+      let discordStatus = 500;
+      let discordMessage = 'Erreur inconnue';
+      let nomDuBot = 'Inconnu';
+      
+      const parts = BOT_TOKEN.split('.');
+      let idFromToken = '';
       try {
+<<<<<<< HEAD
         const discData = await getBotProfile(BOT_TOKEN);
         const parts = BOT_TOKEN.split('.');
         let idFromToken = '';
@@ -101,7 +112,30 @@ export default {
         }, 200, origin);
       } catch (e) {
         return json({ discordStatus: 401, discordMessage: e.message }, 200, origin);
+=======
+        if (parts[0]) idFromToken = atob(parts[0].padEnd(Math.ceil(parts[0].length / 4) * 4, '='));
+      } catch (e) {}
+
+      try {
+        const discData = await getBotProfile(BOT_TOKEN);
+        discordStatus = 200;
+        discordMessage = 'OK';
+        nomDuBot = discData.username;
+      } catch (e) {
+        discordStatus = 401;
+        discordMessage = e.message;
+>>>>>>> 0b203cdd944ec556414fc38373273abda68c2d6b
       }
+
+      return json({
+        discordStatus,
+        discordMessage,
+        nomDuBot,
+        longueur: BOT_TOKEN.length,
+        morceaux: parts.length,
+        longueurs: parts.map(p => p.length),
+        idDansLeToken: idFromToken
+      }, 200, origin);
     }
 
     if (url.pathname === '/__stats') {
