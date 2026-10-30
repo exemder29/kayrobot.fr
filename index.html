@@ -11,7 +11,7 @@
   <link rel="icon" type="image/png" href="favicon.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="landing.css">
@@ -22,11 +22,11 @@
   })();
 </script>
 </head>
-<body>
+<body class="lp">
 
 <header class="lp-header">
   <div class="lp-wrap lp-bar">
-    <a class="lp-brand" href="#accueil"><img src="logo.png" alt="" width="36" height="36"> KayroBot</a>
+    <a class="lp-brand" href="#accueil"><img src="logo.png" alt="" width="30" height="30"> KayroBot</a>
     <button class="lp-burger" id="burger" aria-label="Ouvrir le menu" aria-expanded="false"><i class="fa-solid fa-bars"></i></button>
     <nav class="lp-nav" id="nav" aria-label="Navigation principale">
       <a class="link" href="#accueil">Accueil</a>
@@ -44,36 +44,411 @@
 </header>
 
 <main>
+
+  <!-- Accueil -->
   <section class="lp-hero" id="accueil">
     <div class="lp-wrap lp-hero-grid">
       <div>
-        <h1>Modère, organise et annonce sans quitter Discord.</h1>
-        <p class="sub">KayroBot s'occupe de la modération, des tickets, des messages programmés et de la structure de ton serveur.</p>
+        <a class="pill off" id="hero-pill" href="#statut"><span class="dot"></span><span id="hero-pill-text">Vérification du statut…</span> <i class="fa-solid fa-arrow-right"></i></a>
+        <p class="eyebrow">// bot discord tout-en-un</p>
+        <h1>Un seul bot pour <span class="hl">tout gérer</span> sur ton serveur.</h1>
+        <p class="sub">Modération, tickets, messages programmés et structure du serveur. Tout se lance en commandes slash ou depuis un tableau de bord web, 100&nbsp;% en français.</p>
         <div class="lp-actions">
-          <a class="btn btn-primary" href="https://discord.com/oauth2/authorize?client_id=1563284812351938611&permissions=8&integration_type=0&scope=bot+applications.commands" target="_blank" rel="noopener"><i class="fa-brands fa-discord"></i> Ajouter à Discord</a>
+          <a class="btn btn-primary" href="https://discord.com/oauth2/authorize?client_id=1563284812351938611&permissions=8&integration_type=0&scope=bot+applications.commands" target="_blank" rel="noopener">Ajouter à Discord</a>
+          <a class="btn btn-ghost" href="#fonctionnalites">Découvrir</a>
+        </div>
+        <div class="lp-proof">
+          <span><i class="fa-solid fa-check"></i> 30 commandes slash</span>
+          <span><i class="fa-solid fa-check"></i> 100 % en français</span>
+          <span><i class="fa-solid fa-check"></i> Dashboard inclus</span>
+        </div>
+      </div>
+
+      <!-- Maquette d'une fenêtre Discord : deux sanctions, comme le bot les affiche -->
+      <div class="dc-wrap">
+        <div class="dc" role="img" aria-label="Exemple : un modérateur lance la commande bannir puis sourdine, et KayroBot répond avec un embed de confirmation">
+          <div class="dc-rail" aria-hidden="true">
+            <div class="srv home"><i class="fa-brands fa-discord"></i></div>
+            <div class="srv on"><img src="logo.png" alt=""></div>
+            <div class="srv">G</div>
+            <div class="srv">P</div>
+          </div>
+          <div class="dc-side" aria-hidden="true">
+            <div class="name">Communauté <i class="fa-solid fa-chevron-down"></i></div>
+            <div class="cat">Accueil</div>
+            <div class="ch"><i class="fa-solid fa-hashtag"></i> règles</div>
+            <div class="ch"><i class="fa-solid fa-hashtag"></i> annonces</div>
+            <div class="cat">Discussion</div>
+            <div class="ch"><i class="fa-solid fa-hashtag"></i> général</div>
+            <div class="ch on"><i class="fa-solid fa-hashtag"></i> modération</div>
+            <div class="ch"><i class="fa-solid fa-hashtag"></i> tickets</div>
+            <div class="cat">Vocal</div>
+            <div class="ch"><i class="fa-solid fa-volume-low"></i> Salon 1</div>
+            <div class="ch"><i class="fa-solid fa-volume-low"></i> Musique</div>
+            <div class="dc-me">
+              <div class="av">M</div>
+              <div><b>Mathis</b><small>En ligne</small></div>
+              <div class="ic"><i class="fa-solid fa-microphone"></i><i class="fa-solid fa-headphones"></i><i class="fa-solid fa-gear"></i></div>
+            </div>
+          </div>
+          <div class="dc-main" aria-hidden="true">
+            <div class="dc-top"><i class="fa-solid fa-hashtag" style="color:#80848e"></i> modération <span class="topic">Sanctions et journal du staff</span>
+              <span class="tools"><i class="fa-regular fa-bell"></i><i class="fa-solid fa-thumbtack"></i><i class="fa-solid fa-user-group"></i></span>
+            </div>
+            <div class="dc-feed">
+              <div class="msg">
+                <div class="av">L</div>
+                <div>
+                  <div class="who">Léa <small>Aujourd'hui à 21:06</small></div>
+                  <div class="cmdline"><b>/bannir</b> membre: @spammeur raison: pub non autorisée</div>
+                </div>
+              </div>
+              <div class="msg">
+                <img class="av" src="logo.png" alt="">
+                <div>
+                  <div class="who">KayroBot <span class="app-tag">APP</span> <small>Aujourd'hui à 21:06</small></div>
+                  <div class="embed">
+                    <h4>🔨 Membre banni</h4>
+                    <dl>
+                      <div><dt>Membre</dt><dd>spammeur</dd></div>
+                      <div><dt>Modérateur</dt><dd>@Léa</dd></div>
+                      <div><dt>Raison</dt><dd>pub non autorisée</dd></div>
+                    </dl>
+                  </div>
+                </div>
+              </div>
+              <div class="msg">
+                <div class="av" style="background:#5865f2">N</div>
+                <div>
+                  <div class="who">Noé <small>Aujourd'hui à 21:09</small></div>
+                  <div class="cmdline"><b>/sourdine</b> membre: @Max durée: 30 minutes</div>
+                </div>
+              </div>
+              <div class="msg">
+                <img class="av" src="logo.png" alt="">
+                <div>
+                  <div class="who">KayroBot <span class="app-tag">APP</span> <small>Aujourd'hui à 21:09</small></div>
+                  <div class="embed amber">
+                    <h4>🔇 Membre mis en sourdine</h4>
+                    <dl><div><dt>Durée</dt><dd>30 minute(s)</dd></div></dl>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="dc-input"><i class="fa-solid fa-circle-plus plus"></i> Envoyer un message dans #modération <span class="end"><i class="fa-solid fa-gift"></i><i class="fa-regular fa-face-smile"></i></span></div>
+          </div>
         </div>
       </div>
     </div>
   </section>
+
+  <!-- Bandeau défilant (contenu dupliqué pour une boucle continue) -->
+  <div class="ticker" aria-hidden="true">
+    <div class="ticker-track" id="ticker"></div>
+  </div>
+
+  <!-- Fonctionnalités -->
+  <section class="lp-section" id="fonctionnalites">
+    <div class="lp-wrap">
+      <div class="lp-head">
+        <p class="eyebrow">// fonctionnalités</p>
+        <h2>Ce que KayroBot fait pour toi</h2>
+        <p>Les tâches qui prennent du temps quand on gère un serveur, réunies dans un seul bot.</p>
+      </div>
+
+      <div class="bento">
+        <article class="tile t4 hero-tile">
+          <div class="ico"><i class="fa-solid fa-gavel"></i></div>
+          <h3>Une modération complète</h3>
+          <p>Bannir, débannir, expulser, mettre en sourdine, nettoyer un salon, activer le mode lent ou verrouiller un salon. Le membre sanctionné est prévenu en message privé.</p>
+          <ul>
+            <li><i class="fa-solid fa-check"></i> Avertissements enregistrés pour chaque membre</li>
+            <li><i class="fa-solid fa-check"></i> Sourdine automatique d'une heure au troisième avertissement</li>
+            <li><i class="fa-solid fa-check"></i> Le bot respecte la hiérarchie des rôles</li>
+          </ul>
+        </article>
+
+        <article class="tile t2">
+          <div class="ico"><i class="fa-solid fa-gauge-high"></i></div>
+          <h3>Un tableau de bord web</h3>
+          <p>Choisis ton serveur, envoie un message, poste un embed ou sanctionne un membre depuis ton navigateur.</p>
+          <a class="btn btn-ghost btn-small" href="dashboard" style="justify-self:start">Ouvrir le dashboard</a>
+        </article>
+
+        <article class="tile t2">
+          <div class="ico"><i class="fa-solid fa-ticket"></i></div>
+          <h3>Des tickets filtrés par le staff</h3>
+          <p>Le membre remplit un court formulaire. Le staff accepte ou refuse, et le salon privé n'est créé qu'à l'acceptation.</p>
+          <div class="flow"><span>Formulaire</span><i class="fa-solid fa-chevron-right"></i><span>Staff</span><i class="fa-solid fa-chevron-right"></i><span>Salon privé</span></div>
+        </article>
+
+        <article class="tile t2">
+          <div class="ico"><i class="fa-solid fa-wand-magic-sparkles"></i></div>
+          <h3>Un serveur prêt en une commande</h3>
+          <p>/serveur crée les catégories et salons publics, privés, vocaux, tickets et staff. Un regret ? /serveur-annuler supprime ce qu'il a créé.</p>
+        </article>
+
+        <article class="tile t2">
+          <div class="ico"><i class="fa-solid fa-clock"></i></div>
+          <h3>Des messages programmés</h3>
+          <p>Choisis une date et une heure de Paris, le bot publie le message au bon moment. Tu peux les lister et les annuler.</p>
+        </article>
+
+        <article class="tile t3">
+          <div class="ico"><i class="fa-solid fa-bell"></i></div>
+          <h3>Un rappel de bump toutes les 2 heures</h3>
+          <p>Le bot ping le rôle de ton choix quand il est temps de relancer ton serveur sur les listes publiques.</p>
+        </article>
+
+        <article class="tile t3">
+          <div class="ico"><i class="fa-solid fa-masks-theater"></i></div>
+          <h3>Une apparence à ton image</h3>
+          <p>Donne un autre nom et une autre photo au bot dans ses messages, sans toucher à son vrai profil.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- Commandes -->
+  <section class="lp-section alt" id="commandes">
+    <div class="lp-wrap">
+      <div class="lp-head">
+        <p class="eyebrow">// commandes</p>
+        <h2>Toutes les commandes</h2>
+        <p>Tape <b>/</b> dans Discord, puis le nom de la commande. L'autocomplétion de Discord te guide pour les options.</p>
+      </div>
+      <div class="cmd-tabs" role="tablist" aria-label="Catégories de commandes" id="cmd-tabs"></div>
+      <div class="cmd-list" id="cmd-list" role="tabpanel"></div>
+      <p class="lp-note">Les paramètres indiqués résument les champs et réglages identifiables depuis le site. Les options exactes proposées par Discord peuvent varier selon la commande et restent visibles dans son menu de saisie. Lance <b>/aide</b> pour la liste, ou <b>/aide-plus</b> pour une explication par commande.</p>
+    </div>
+  </section>
+
+  <!-- Aide -->
+  <section class="lp-section" id="aide">
+    <div class="lp-wrap">
+      <div class="lp-head">
+        <p class="eyebrow">// aide</p>
+        <h2>Besoin d'aide ?</h2>
+        <p>Pour bien démarrer, puis les questions qu'on se pose le plus souvent.</p>
+      </div>
+      <div class="help-grid">
+        <ol class="steps">
+          <li><div><strong>Invite le bot</strong><span>Clique sur « Inviter » et choisis ton serveur. Il faut être administrateur.</span></div></li>
+          <li><div><strong>Place son rôle assez haut</strong><span>Dans Paramètres du serveur &gt; Rôles, monte le rôle de KayroBot au-dessus des rôles qu'il doit gérer.</span></div></li>
+          <li><div><strong>Configure ce dont tu as besoin</strong><span>/serveur pour créer la structure, /ticket config (ou le dashboard) pour les tickets, /bump-auto activer pour le rappel de bump.</span></div></li>
+          <li><div><strong>Ouvre le dashboard</strong><span>Connecte-toi avec Discord pour gérer ton serveur depuis le navigateur.</span></div></li>
+        </ol>
+
+        <div class="faq">
+          <details>
+            <summary>Le bot dit qu'il n'a pas la permission</summary>
+            <p>Son rôle est placé plus bas que celui du membre ou du rôle visé. Monte le rôle de KayroBot dans <b>Paramètres du serveur &gt; Rôles</b>, puis réessaie.</p>
+          </details>
+          <details>
+            <summary>Le bouton du panneau de tickets répond que rien n'est configuré</summary>
+            <p>Lance <b>/ticket config</b> dans Discord, ou ouvre l'onglet Tickets du dashboard, pour choisir le salon où arrivent les demandes et le rôle du staff. Ensuite, poste le panneau avec <b>/ticket panneau</b>.</p>
+          </details>
+          <details>
+            <summary>Qui peut utiliser les commandes ?</summary>
+            <p>Chaque commande demande une permission Discord. Par exemple, /say et /embed demandent <b>Gérer les messages</b>, /role demande <b>Gérer les rôles</b> et /serveur demande d'être <b>Administrateur</b>.</p>
+          </details>
+          <details>
+            <summary>Je ne vois pas mon serveur dans le dashboard</summary>
+            <p>Seuls les serveurs où tu es propriétaire ou administrateur apparaissent. Si le bot n'y est pas, le dashboard affiche « Bot absent » avec un bouton pour l'inviter.</p>
+          </details>
+          <details>
+            <summary>Un membre n'a pas reçu le message privé de sanction</summary>
+            <p>Si ses messages privés sont fermés, Discord refuse l'envoi. La sanction s'applique quand même.</p>
+          </details>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Statut -->
+  <section class="lp-section alt" id="statut">
+    <div class="lp-wrap">
+      <div class="lp-head">
+        <p class="eyebrow">// statut</p>
+        <h2>Statut</h2>
+        <p>Vérifié à l'ouverture de cette page.</p>
+      </div>
+      <div class="status-row">
+        <div class="status-card"><span class="k">Accès à Discord</span><span class="v" id="st-api">Vérification…</span></div>
+        <div class="status-card"><span class="k">Serveurs où KayroBot est présent</span><span class="v" id="st-guilds">…</span></div>
+        <div class="status-card"><span class="k">Tableau de bord</span><span class="v ok">Disponible</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Appel final -->
+  <section class="lp-section">
+    <div class="lp-wrap">
+      <div class="lp-final">
+        <div>
+          <h2>Ton serveur mérite un peu moins de corvées.</h2>
+          <p>Invite KayroBot, lance <b>/aide</b> et commence par ce qui te prend le plus de temps.</p>
+        </div>
+        <a class="btn btn-primary" style="padding:15px 24px;font-size:15px" href="https://discord.com/oauth2/authorize?client_id=1563284812351938611&permissions=8&integration_type=0&scope=bot+applications.commands" target="_blank" rel="noopener"><i class="fa-brands fa-discord"></i> Ajouter à Discord</a>
+      </div>
+    </div>
+  </section>
+
 </main>
 
+<footer class="lp-footer">
+  <div class="lp-wrap">
+    <span>© 2026 KayroBot</span>
+    <nav aria-label="Liens du pied de page">
+      <a href="#fonctionnalites">Fonctionnalités</a>
+      <a href="#commandes">Commandes</a>
+      <a href="#aide">Aide</a>
+      <a href="dashboard">Dashboard</a>
+      <a href="admin">Admin</a>
+    </nav>
+  </div>
+</footer>
+
 <script>
+// ---------- Menu mobile ----------
+const burger = document.getElementById('burger');
+const nav = document.getElementById('nav');
+burger.addEventListener('click', () => {
+  const open = nav.classList.toggle('open');
+  burger.setAttribute('aria-expanded', open);
+});
+nav.addEventListener('click', e => { if (e.target.closest('a')) nav.classList.remove('open'); });
+
+// ---------- Bandeau défilant ----------
+(function () {
+  const items = [
+    '<b>30</b> commandes slash', '<b>100 %</b> en français', 'Tableau de bord <b>web</b>', 'Tickets <b>filtrés</b> par le staff',
+    'Messages <b>programmés</b>', 'Rappel de bump <b>toutes les 2 h</b>', 'Hiérarchie des rôles <b>respectée</b>', 'Serveur prêt en <b>une commande</b>'
+  ];
+  const html = items.map(t => `<span>${t}</span>`).join('');
+  document.getElementById('ticker').innerHTML = html + html;
+})();
+
+// ---------- Commandes ----------
+const COMMANDS = {
+  'Modération': [
+    ['/bannir', 'Bannit un membre et peut supprimer une partie de ses messages.', 'membre · raison · jours de messages à supprimer (0, 1 ou 7)'],
+    ['/debannir', 'Débannit un utilisateur à partir de son identifiant Discord.', 'identifiant utilisateur · raison (facultative)'],
+    ['/expulser', 'Expulse un membre, qui pourra revenir avec une invitation.', 'membre · raison (facultative)'],
+    ['/sourdine', 'Empêche un membre d’écrire et de parler pendant une durée donnée (28 jours maximum).', 'membre · durée · unité (minutes, heures ou jours) · raison'],
+    ['/fin-sourdine', 'Retire la sourdine d’un membre.', 'membre'],
+    ['/avertir', 'Enregistre un avertissement et prévient le membre. Au troisième avertissement, une sourdine automatique d’une heure est appliquée.', 'membre · raison'],
+    ['/avertissements', 'Affiche les avertissements enregistrés pour un membre.', 'membre'],
+    ['/effacer-avertissements', 'Efface les avertissements d’un membre (administrateur).', 'membre'],
+    ['/deconnecter', 'Déconnecte un membre de son salon vocal.', 'membre · raison (facultative)'],
+    ['/deplacer', 'Déplace un membre vers un autre salon vocal.', 'membre · salon vocal de destination']
+  ],
+  'Messages': [
+    ['/say', 'Fait parler KayroBot dans le salon de ton choix.', 'salon · message'],
+    ['/embed', 'Publie une annonce mise en forme avec titre, texte et couleur.', 'salon · titre · description · couleur · image (facultative)'],
+    ['/programmer', 'Programme un message pour une date et une heure précises (heure de Paris).', 'salon · message · date · heure'],
+    ['/programmations', 'Affiche les messages programmés sur le serveur.', 'aucune option obligatoire'],
+    ['/annuler-programmation', 'Annule un message programmé.', 'identifiant de la programmation'],
+    ['/bump-auto', 'Active, arrête ou vérifie le rappel automatique de bump toutes les deux heures.', 'action : activer · arrêter · état ; rôle à mentionner (selon action)'],
+    ['/apparence', 'Personnalise le nom et l’avatar affichés par le bot dans ses messages.', 'nom · URL de la photo (ou pièce jointe selon Discord)']
+  ],
+  'Salons': [
+    ['/nettoyer', 'Supprime jusqu’à 100 messages, éventuellement ceux d’un membre précis.', 'quantité · membre (facultatif)'],
+    ['/mode-lent', 'Règle le délai entre deux messages, de 0 à 6 heures.', 'durée en secondes · salon (facultatif)'],
+    ['/verrouiller', 'Empêche les membres d’écrire dans le salon.', 'salon (facultatif) · raison (facultative)'],
+    ['/deverrouiller', 'Rétablit le droit d’écrire dans le salon.', 'salon (facultatif)'],
+    ['/serveur', 'Crée automatiquement une structure de catégories et de salons publics, privés, vocaux, tickets et staff.', 'configuration/structure proposée par le bot'],
+    ['/serveur-annuler', 'Annule la dernière création faite par /serveur et supprime les éléments créés.', 'aucune option obligatoire']
+  ],
+  'Rôles': [
+    ['/role creer', 'Crée un rôle avec ses permissions et sa position.', 'nom · couleur · permissions · position (selon options proposées)'],
+    ['/role modifier', 'Modifie le nom, la couleur, les permissions ou la position d’un rôle.', 'rôle · nom / couleur / permissions / position'],
+    ['/role supprimer', 'Supprime un rôle du serveur.', 'rôle'],
+    ['/role ajouter', 'Attribue un rôle à un membre sans retirer ses autres rôles.', 'membre · rôle'],
+    ['/role retirer', 'Retire un rôle à un membre.', 'membre · rôle'],
+    ['/role remplacer', 'Remplace un rôle par un autre chez un membre.', 'membre · rôle à retirer · rôle à ajouter'],
+    ['/role voir', 'Affiche la liste des rôles du serveur.', 'aucune option obligatoire']
+  ],
+  'Tickets': [
+    ['/ticket panneau', 'Publie le panneau permettant aux membres d’ouvrir une demande.', 'salon de publication'],
+    ['/ticket config', 'Configure le salon de réception, le rôle du staff et la catégorie des tickets.', 'salon de réception · rôle staff · catégorie'],
+    ['/ticket questions', 'Définit jusqu’à cinq questions pour le formulaire de ticket.', 'questions (jusqu’à 5)'],
+    ['/ticket option-ajouter', 'Ajoute un type de demande au menu du panneau.', 'nom · description · emoji (si proposé)'],
+    ['/ticket option-retirer', 'Retire un type de demande du menu.', 'type de ticket'],
+    ['/ticket options', 'Liste les types de tickets actuellement configurés.', 'aucune option obligatoire']
+  ],
+  'Infos et outils': [
+    ['/infos-membre', 'Affiche les informations d’un membre.', 'membre'],
+    ['/infos-serveur', 'Affiche les informations du serveur.', 'aucune option obligatoire'],
+    ['/ping', 'Mesure la latence de KayroBot.', 'aucune option obligatoire'],
+    ['/aide', 'Affiche la liste des commandes disponibles.', 'aucune option obligatoire'],
+    ['/aide-plus', 'Affiche les commandes avec une courte explication.', 'aucune option obligatoire']
+  ]
+};
+
+const tabs = document.getElementById('cmd-tabs');
+const list = document.getElementById('cmd-list');
+
+function showCategory(name) {
+  tabs.querySelectorAll('button').forEach(b => b.setAttribute('aria-selected', b.dataset.cat === name));
+  list.innerHTML = '';
+  COMMANDS[name].forEach(([cmd, desc, options]) => {
+    const item = document.createElement('article');
+    item.className = 'cmd-item';
+    const top = document.createElement('div'); top.className = 'cmd-item-top';
+    const code = document.createElement('code'); code.textContent = cmd;
+    const span = document.createElement('span'); span.className = 'cmd-description'; span.textContent = desc;
+    const meta = document.createElement('div'); meta.className = 'cmd-options';
+    const label = document.createElement('b'); label.textContent = 'Options';
+    const detail = document.createElement('span'); detail.textContent = options;
+    top.append(code, span); meta.append(label, detail);
+    item.append(top, meta);
+    list.appendChild(item);
+  });
+}
+
+Object.keys(COMMANDS).forEach(name => {
+  const b = document.createElement('button');
+  b.type = 'button'; b.dataset.cat = name; b.setAttribute('role', 'tab');
+  b.textContent = `${name} (${COMMANDS[name].length})`;
+  b.addEventListener('click', () => showCategory(name));
+  tabs.appendChild(b);
+});
+showCategory('Modération');
+
+// ---------- Statut (via le Worker) ----------
 const BOT_PROXY_URL = 'https://kayrobot-proxy.exem029.workers.dev';
 (async () => {
   const api = document.getElementById('st-api');
   const guilds = document.getElementById('st-guilds');
-  if (!api || !guilds) return;
+  const pill = document.getElementById('hero-pill');
+  const pillText = document.getElementById('hero-pill-text');
   try {
     const res = await fetch(`${BOT_PROXY_URL}/__stats`);
     const d = await res.json();
     if (!d.ok) throw new Error('refus');
+    const n = d.serveurs != null ? Number(d.serveurs) : null;
     api.textContent = 'Opérationnel'; api.className = 'v ok';
-    guilds.textContent = d.serveurs != null ? Number(d.serveurs).toLocaleString('fr-FR') : 'Non communiqué';
+    guilds.textContent = n != null ? n.toLocaleString('fr-FR') : 'Non communiqué';
+    pill.classList.remove('off');
+    pillText.textContent = n != null ? `Bot en ligne · ${n.toLocaleString('fr-FR')} serveur${n > 1 ? 's' : ''}` : 'Bot en ligne';
   } catch (e) {
     api.textContent = 'Indisponible'; api.className = 'v bad';
     guilds.textContent = 'Non communiqué';
+    pillText.textContent = 'Statut indisponible';
   }
 })();
+</script>
+<script>
+  // Si tu t'es déjà connecté, le bouton mène direct au dashboard (qui renouvelle la connexion tout seul)
+  (function () {
+    try {
+      var link = document.getElementById('login-link');
+      var exp = Number(localStorage.getItem('discord_token_exp')) || 0;
+      var ok = localStorage.getItem('discord_remember') === '1' || (localStorage.getItem('discord_token') && (!exp || exp > Date.now()));
+      if (link && ok) { link.href = 'dashboard'; link.textContent = 'Mon dashboard'; }
+    } catch (e) {}
+  })();
 </script>
 </body>
 </html>
