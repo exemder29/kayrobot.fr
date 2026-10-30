@@ -370,5 +370,16 @@ const BOT_PROXY_URL = 'https://kayrobot-proxy.exem029.workers.dev';
   }
 })();
 </script>
+<script>
+  // Si tu t'es déjà connecté, le bouton mène direct au dashboard (qui renouvelle la connexion tout seul)
+  (function () {
+    try {
+      var link = document.getElementById('login-link');
+      var exp = Number(localStorage.getItem('discord_token_exp')) || 0;
+      var ok = localStorage.getItem('discord_remember') === '1' || (localStorage.getItem('discord_token') && (!exp || exp > Date.now()));
+      if (link && ok) { link.href = 'dashboard.html'; link.textContent = 'Mon dashboard'; }
+    } catch (e) {}
+  })();
+</script>
 </body>
 </html>

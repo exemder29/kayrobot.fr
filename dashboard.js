@@ -14,21 +14,56 @@ function proxyConfigured() {
   return /^https:\/\/.+/.test(BOT_PROXY_URL);
 }
 
+// ---------- Connexion Discord : mémorisée, renouvelée en silence ----------
+const REDIRECT_URI = 'https://exemder29.github.io/kayrobot.fr/dashboard.html';
+const authUrl = silent =>
+  `https://discord.com/oauth2/authorize?client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&response_type=token&scope=identify%20guilds${silent ? '&prompt=none' : ''}`;
+
+// Renvoie le token s'il est encore valable (les anciens tokens sans date sont gardés jusqu'à un refus de Discord)
+function storedToken() {
+  const t = localStorage.getItem('discord_token');
+  const exp = Number(localStorage.getItem('discord_token_exp')) || 0;
+  return t && (!exp || exp > Date.now() + 60_000) ? t : null;
+}
+
+// Va chercher un nouveau token. Si le compte a déjà été autorisé, Discord répond sans rien demander.
+function startLogin() {
+  const last = Number(sessionStorage.getItem('kayrobot_login_try')) || 0;
+  if (Date.now() - last < 15_000) { window.location.href = 'index.html'; return; } // évite toute boucle
+  sessionStorage.setItem('kayrobot_login_try', String(Date.now()));
+  localStorage.removeItem('discord_token');
+  localStorage.removeItem('discord_token_exp');
+  window.location.href = authUrl(localStorage.getItem('discord_remember') === '1');
+}
+
 window.addEventListener('DOMContentLoaded', () => {
-  const hash = window.location.hash.substring(1);
-  const params = new URLSearchParams(hash);
-  const accessToken = params.get('access_token');
+  const hash = new URLSearchParams(window.location.hash.substring(1));
+  const query = new URLSearchParams(window.location.search);
+  const accessToken = hash.get('access_token');
+  const authError = hash.get('error') || query.get('error');
 
   if (accessToken) {
     localStorage.setItem('discord_token', accessToken);
+    localStorage.setItem('discord_token_exp', String(Date.now() + (Number(hash.get('expires_in')) || 604800) * 1000));
+    localStorage.setItem('discord_remember', '1');
+    sessionStorage.removeItem('kayrobot_login_try');
+    sessionStorage.removeItem('kayrobot_manual');
     window.history.replaceState({}, document.title, window.location.pathname);
-  }
-
-  const token = localStorage.getItem('discord_token');
-  if (!token) {
-    window.location.href = 'index.html';
+  } else if (authError) {
+    window.history.replaceState({}, document.title, window.location.pathname);
+    if (authError === 'access_denied') { localStorage.removeItem('discord_remember'); window.location.href = 'index.html'; return; }
+    // La reconnexion silencieuse n'a pas abouti : on demande normalement, une seule fois
+    if (!sessionStorage.getItem('kayrobot_manual')) {
+      sessionStorage.setItem('kayrobot_manual', '1');
+      window.location.href = authUrl(false);
+    } else {
+      window.location.href = 'index.html';
+    }
     return;
   }
+
+  const token = storedToken();
+  if (!token) { startLogin(); return; }
 
   // Vérifier le Worker (affiche seulement son état)
   checkProxy();
@@ -40,17 +75,20 @@ window.addEventListener('DOMContentLoaded', () => {
 function initDashboard(token) {
   const headers = { Authorization: `Bearer ${token}` };
   // Profil, serveurs et présence du bot partent en même temps
-  const profile = fetch('https://discord.com/api/users/@me', { headers }).then(res => {
-    if (!res.ok) throw new Error('Token Discord invalide ou expiré');
+  fetch('https://discord.com/api/users/@me', { headers }).then(res => {
+    if (res.status === 401) { const e = new Error('Session expirée'); e.expired = true; throw e; }
+    if (!res.ok) throw new Error(`Discord a répondu ${res.status}`);
     return res.json();
-  });
-  profile.then(user => {
+  }).then(user => {
     currentUserId = user.id;
     document.getElementById('user-display-name').textContent = user.username;
     if (user.avatar) {
       document.getElementById('user-avatar').src = `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`;
     }
-  }).catch(() => logout());
+  }).catch(err => {
+    if (err.expired) startLogin(); // token refusé : on le renouvelle sans te déconnecter
+    else toast('warn', 'Discord injoignable', 'Impossible de charger ton profil pour le moment.');
+  });
   fetchUserGuilds(token);
 }
 
@@ -62,6 +100,7 @@ function fetchUserGuilds(token) {
     headers: { Authorization: `Bearer ${token}` }
   })
   .then(res => {
+    if (res.status === 401) { startLogin(); throw new Error('Session expirée'); }
     if (!res.ok) throw new Error('Token Discord invalide ou expiré');
     return res.json();
   })
@@ -86,22 +125,28 @@ function guildIconUrl(g) {
     : 'https://cdn.discordapp.com/embed/avatars/0.png';
 }
 
+let showAbsentGuilds = false;
+
 function renderGuilds(guilds) {
   const container = document.getElementById('guilds-container');
   const loading = document.getElementById('guilds-loading');
   container.innerHTML = '';
-  loading.classList.add('hidden');
-  container.classList.remove('hidden');
+  updateAbsentToggle();
 
   if (guilds.length === 0) {
+    loading.classList.add('hidden');
+    container.classList.remove('hidden');
     container.innerHTML = '<div class="empty" style="grid-column:1/-1"><strong>Aucun serveur trouvé</strong><p>Tu dois être propriétaire ou administrateur d\'un serveur pour le gérer ici.</p></div>';
     return;
   }
+  // Tant que le bot n'est pas vérifié, on n'affiche rien d'autre que le chargement
+  const known = guilds.every(g => presenceCache.has(g.id));
+  if (!known) { loading.classList.remove('hidden'); loading.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i><p>Recherche du bot sur tes serveurs…</p>'; container.classList.add('hidden'); }
 
   const queue = [];
   guilds.forEach(guild => {
     const card = document.createElement('article');
-    card.className = 'guild';
+    card.className = 'guild hidden';
     card.innerHTML = `
       <div class="guild-top">
         <img alt="">
@@ -123,6 +168,7 @@ function renderGuilds(guilds) {
   const paint = (guild, card, present) => {
     const state = card.querySelector('.state');
     const btns = card.querySelector('.guild-btns');
+    card.dataset.absent = present === false ? '1' : '';
     if (present === true) {
       state.textContent = 'Bot présent'; state.className = 'state ok';
       btns.innerHTML = '<button class="btn btn-primary btn-small">Gérer</button>';
@@ -136,13 +182,26 @@ function renderGuilds(guilds) {
       btns.innerHTML = '<button class="btn btn-ghost btn-small">Gérer</button>';
       btns.firstChild.addEventListener('click', () => selectGuild(guild.id, guild.name));
     }
+    // Seuls les serveurs avec le bot sont montrés (les autres via le bouton sous la liste)
+    card.classList.toggle('hidden', present === false && !showAbsentGuilds);
   };
 
-  // Les cartes sont déjà affichées ; les badges se mettent à jour d'un coup
+  // Quand tout est vérifié : affiche la liste (ou un message s'il n'y a rien)
+  const finish = () => {
+    loading.classList.add('hidden');
+    container.classList.remove('hidden');
+    container.querySelectorAll('.empty').forEach(e => e.remove());
+    if (!queue.some(({ card }) => !card.classList.contains('hidden'))) {
+      const absent = queue.filter(({ card }) => card.dataset.absent === '1').length;
+      container.insertAdjacentHTML('afterbegin', `<div class="empty" style="grid-column:1/-1"><strong>Le bot n'est sur aucun de ces serveurs</strong><p>${absent ? 'Affiche les serveurs sans le bot ci-dessous pour l\'y inviter.' : 'Aucun résultat.'}</p></div>`);
+    }
+    updateAbsentToggle();
+  };
+
   loadPresence().then(async ok => {
-    if (ok) {
+    if (ok || known) {
       queue.forEach(({ guild, card }) => paint(guild, card, presenceCache.get(guild.id) === true));
-      return;
+      return finish();
     }
     // Repli (Worker pas encore mis à jour) : vérification serveur par serveur, 6 à la fois
     let next = 0;
@@ -160,10 +219,22 @@ function renderGuilds(guilds) {
           if (present !== null) presenceCache.set(guild.id, present);
         }
         paint(guild, card, present);
+        container.classList.remove('hidden'); loading.classList.add('hidden'); // les serveurs apparaissent au fur et à mesure
       }
     };
     await Promise.all([run(), run(), run(), run(), run(), run()]);
+    finish();
   });
+}
+
+// Bouton « Afficher les serveurs sans le bot »
+function updateAbsentToggle() {
+  const box = document.getElementById('guilds-extra');
+  if (!box) return;
+  const n = userGuilds.filter(g => presenceCache.get(g.id) === false).length;
+  box.classList.toggle('hidden', n === 0);
+  const btn = document.getElementById('btn-show-absent');
+  btn.textContent = showAbsentGuilds ? `Masquer les ${n} serveur(s) sans le bot` : `Afficher les ${n} serveur(s) sans le bot`;
 }
 
 // Une seule requête au Worker : la liste des serveurs (parmi les tiens) où le bot est présent
@@ -1088,10 +1159,17 @@ function initEventListeners() {
     const q = e.target.value.trim().toLowerCase();
     renderGuilds(userGuilds.filter(g => g.name.toLowerCase().includes(q)));
   });
+  document.getElementById('btn-show-absent').addEventListener('click', () => {
+    showAbsentGuilds = !showAbsentGuilds;
+    document.querySelectorAll('#guilds-container .guild[data-absent="1"]').forEach(c => c.classList.toggle('hidden', !showAbsentGuilds));
+    updateAbsentToggle();
+  });
   document.getElementById('btn-logout').addEventListener('click', logout);
 }
 
 function logout() {
   localStorage.removeItem('discord_token');
+  localStorage.removeItem('discord_token_exp');
+  localStorage.removeItem('discord_remember');
   window.location.href = 'index.html';
 }
