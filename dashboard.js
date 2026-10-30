@@ -1,7 +1,11 @@
 async function resolveUser(input, guildId) {
   const str = (input || '').trim();
   if (!str) throw new UserInputError("Veuillez entrer un membre (pseudo ou ID).");
-  if (/^\d{17,20}$/.test(str)) return str;
+  
+  if (/^\d{17,20}$/.test(str)) {
+    return str;
+  }
+  
   const query = encodeURIComponent(str.replace(/^@/, ''));
   try {
     const members = await discordRequest('GET', `/guilds/${guildId}/members/search?query=${query}&limit=5`);
@@ -14,7 +18,10 @@ async function resolveUser(input, guildId) {
       if (exact) return exact.user.id;
       return members[0].user.id;
     }
-  } catch (e) {}
+  } catch (e) {
+    console.error("Erreur de recherche de membre:", e);
+  }
+  
   throw new UserInputError(`Membre introuvable pour "${str}".`);
 }
 
@@ -32,6 +39,7 @@ let rawChannelsList = [];
 let allChannelsList = [];
 let guildRolesList = [];
 
+// Ton URL de Worker exacte et officielle
 const BOT_PROXY_URL = 'https://kayrobot-proxy.exem029.workers.dev';
 
 function proxyConfigured() {
@@ -183,9 +191,90 @@ function selectGuild(id, name) {
   const badge = document.getElementById('active-server-badge');
   badge.classList.remove('hidden');
   badge.textContent = name;
+
+  loadGuildChannels(id);
+  loadGuildRoles(id);
   loadOverview();
   switchTab('overview');
 }
+
+function setChannelDropdownsMessage(msg) {
+  document.querySelectorAll('.guild-channels-dropdown').forEach(select => {
+    select.innerHTML = '';
+    const opt = document.createElement('option');
+    opt.value = '';
+    opt.textContent = msg;
+    select.appendChild(opt);
+  });
+}
+
+async function loadGuildChannels(guildId) {
+  rawChannelsList = []; allChannelsList = [];
+  setChannelDropdownsMessage('Chargement des salons...');
+  try {
+    const channels = await discordRequest('GET', `/guilds/${guildId}/channels`);
+    allChannelsList = channels;
+    rawChannelsList = channels.filter(c => c.type === 0 || c.type === 5);
+    populateAllChannelDropdowns(rawChannelsList);
+    fillVoiceDropdowns();
+  } catch (err) {
+    setChannelDropdownsMessage('❌ Erreur chargement salons');
+  }
+}
+
+async function loadGuildRoles(guildId) {
+  try {
+    const roles = await discordRequest('GET', `/guilds/${guildId}/roles`);
+    guildRolesList = roles.filter(r => r.name !== '@everyone').sort((a, b) => b.position - a.position);
+    fillRoleDropdowns();
+  } catch (e) {
+    guildRolesList = [];
+    fillRoleDropdowns();
+  }
+}
+
+function fillSelect(select, items, placeholder) {
+  select.innerHTML = '';
+  const none = document.createElement('option'); none.value = ''; none.textContent = placeholder; select.appendChild(none);
+  items.forEach(it => { const o = document.createElement('option'); o.value = it.id; o.textContent = it.label; select.appendChild(o); });
+}
+
+function fillVoiceDropdowns() {
+  const voices = allChannelsList.filter(c => c.type === 2 || c.type === 13).map(c => ({ id: c.id, label: `🔊 ${c.name}` }));
+  document.querySelectorAll('.guild-voice-dropdown').forEach(sel => fillSelect(sel, voices, 'Choisis un salon vocal'));
+}
+
+function fillRoleDropdowns() {
+  const roles = guildRolesList.map(r => ({ id: r.id, label: `@${r.name}` }));
+  document.querySelectorAll('.guild-roles-dropdown').forEach(sel => fillSelect(sel, roles, 'Choisis un rôle'));
+}
+
+function populateAllChannelDropdowns(channels) {
+  document.querySelectorAll('.guild-channels-dropdown').forEach(select => {
+    select.innerHTML = '<option value="">Choisis un salon</option>';
+    channels.forEach(ch => {
+      const opt = document.createElement('option');
+      opt.value = ch.id;
+      opt.textContent = `#${ch.name}`;
+      select.appendChild(opt);
+    });
+  });
+}
+
+window.filterChannels = function(inputElement, selectId) {
+  const filter = inputElement.value.toLowerCase();
+  const select = document.getElementById(selectId);
+  if (!select) return;
+  select.innerHTML = '<option value="">Choisis un salon</option>';
+  rawChannelsList
+    .filter(ch => ch.name.toLowerCase().includes(filter))
+    .forEach(ch => {
+      const opt = document.createElement('option');
+      opt.value = ch.id;
+      opt.textContent = `#${ch.name}`;
+      select.appendChild(opt);
+    });
+};
 
 async function checkProxy() {
   const el = document.getElementById('token-state');
@@ -203,8 +292,10 @@ async function checkProxy() {
         ? `Connecté au bot « ${d.nomDuBot || 'Bot'} » via le Worker sécurisé.`
         : (d.discordMessage || 'Discord refuse le token du bot.');
       el.querySelector('pre').textContent =
-        `Longueur du token : ${d.longueur || 0}\n` +
-        `ID du bot : ${d.idDansLeToken || 'non détecté'}\n` +
+        `Longueur du token : ${d.longueur || 0}
+` +
+        `ID du bot : ${d.idDansLeToken || 'non détecté'}
+` +
         `Réponse de Discord : ${d.discordStatus || 500}`;
     }
   } catch (e) {
@@ -253,13 +344,34 @@ function toast(kind, title, text) {
   setTimeout(() => el.remove(), 5000);
 }
 
-function loadOverview() {
+let overviewStats = { members: null, online: null, roles: null, channels: null };
+
+function renderOverviewMeta() {
+  const s = overviewStats;
+  const parts = [];
+  if (s.members != null) parts.push(`<b>${s.members.toLocaleString('fr-FR')}</b> membres`);
+  if (s.roles != null) parts.push(`<b>${s.roles}</b> rôles`);
+  if (s.channels != null) parts.push(`<b>${s.channels}</b> salons`);
+  document.getElementById('ov-meta').innerHTML = parts.length ? parts.join(', ') : 'Chiffres du serveur.';
+}
+
+async function loadOverview() {
   if (!selectedGuild) return;
   const g = userGuilds.find(x => x.id === selectedGuild.id);
   document.getElementById('ov-empty').classList.add('hidden');
   document.getElementById('ov-body').classList.remove('hidden');
   document.getElementById('ov-icon').src = guildIconUrl(g);
   document.getElementById('ov-name').textContent = selectedGuild.name;
+  document.getElementById('ov-meta').textContent = 'Chargement des chiffres...';
+  overviewStats = { members: null, online: null, roles: null, channels: null };
+
+  try {
+    const info = await discordRequest('GET', `/guilds/${selectedGuild.id}?with_counts=true`);
+    overviewStats.members = info.approximate_member_count ?? null;
+    overviewStats.roles = (info.roles || []).length;
+    overviewStats.channels = rawChannelsList.length || null;
+  } catch (e) {}
+  renderOverviewMeta();
 }
 
 window.goCommand = function(cat) {
