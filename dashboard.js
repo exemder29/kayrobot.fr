@@ -16,6 +16,7 @@ function proxyConfigured() {
 
 // ---------- Connexion Discord : mémorisée, renouvelée en silence ----------
 const REDIRECT_URI = 'https://exemder29.github.io/kayrobot.fr/dashboard.html';
+const IS_MOBILE = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
 const authUrl = silent =>
   `https://discord.com/oauth2/authorize?client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&response_type=token&scope=identify%20guilds${silent ? '&prompt=none' : ''}`;
 
@@ -33,7 +34,7 @@ function startLogin() {
   sessionStorage.setItem('kayrobot_login_try', String(Date.now()));
   localStorage.removeItem('discord_token');
   localStorage.removeItem('discord_token_exp');
-  window.location.href = authUrl(localStorage.getItem('discord_remember') === '1');
+  window.location.href = authUrl(localStorage.getItem('discord_remember') === '1' && !IS_MOBILE);
 }
 
 window.addEventListener('DOMContentLoaded', () => {
@@ -110,7 +111,13 @@ function fetchUserGuilds(token) {
   })
   .catch(err => {
     console.error(err);
-    loading.innerHTML = '<p class="text-sm text-discord-red">Erreur lors de la récupération des serveurs.</p>';
+    if (err.message === 'Session expirée') return; // la reconnexion est déjà en cours
+    loading.classList.remove('hidden');
+    document.getElementById('guilds-container').classList.add('hidden');
+    loading.innerHTML = '<p></p><p style="margin-top:10px"><button type="button" class="btn btn-primary btn-small" id="btn-guilds-retry">Réessayer</button> <button type="button" class="btn btn-ghost btn-small" id="btn-guilds-relogin">Se reconnecter</button></p>';
+    loading.firstChild.textContent = `Impossible de récupérer tes serveurs (${err.message || 'erreur réseau'}).`;
+    document.getElementById('btn-guilds-retry').onclick = () => { loading.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i><p>Chargement de tes serveurs…</p>'; fetchUserGuilds(localStorage.getItem('discord_token') || token); };
+    document.getElementById('btn-guilds-relogin').onclick = () => { sessionStorage.removeItem('kayrobot_login_try'); startLogin(); };
   });
 }
 
@@ -214,7 +221,8 @@ function renderGuilds(guilds) {
             await discordRequest('GET', `/guilds/${guild.id}`, undefined, undefined, guild.id);
             present = true;
           } catch (e) {
-            present = /\b(403|404)\b/.test(e.message) ? false : null;
+            // « absent » seulement si Discord le dit (10004 = serveur inconnu, 50001 = accès manquant)
+            present = /code (10004|50001)\)/.test(e.message) ? false : null;
           }
           if (present !== null) presenceCache.set(guild.id, present);
         }
@@ -247,15 +255,15 @@ function loadPresence() {
       const res = await fetch(`${BOT_PROXY_URL}/__presence`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('discord_token')}` }
       });
-      if (!res.ok) return false;
+      if (!res.ok) { presenceLoading = null; return false; }
       const d = await res.json();
-      if (!Array.isArray(d.present)) return false;
+      if (!Array.isArray(d.present)) { presenceLoading = null; return false; }
       const set = new Set(d.present);
       userGuilds.forEach(g => presenceCache.set(g.id, set.has(g.id)));
       return true;
-    } catch (e) { return false; }
+    } catch (e) { presenceLoading = null; return false; }
   })();
-  // on garde le résultat 30 s, comme le cache du Worker
+  // on garde un succès 30 s, comme le cache du Worker (un échec est retenté tout de suite)
   setTimeout(() => { presenceLoading = null; }, 30000);
   return presenceLoading;
 }
