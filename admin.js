@@ -1,4 +1,12 @@
-const firebaseConfig = { projectId: "kayrobot-fr" };
+// Projet Firebase qui contient la base Firestore (collection admin, document config)
+const firebaseConfig = {
+  apiKey: "AIzaSyASXGakU4JZXw6LfYH1h4TSjhnb8MTr62A",
+  authDomain: "kayrobot-discord.firebaseapp.com",
+  projectId: "kayrobot-discord",
+  storageBucket: "kayrobot-discord.firebasestorage.app",
+  messagingSenderId: "410306319312",
+  appId: "1:410306319312:web:bd46a2752eb63c2a329fd5"
+};
 if (!firebase.apps.length) { firebase.initializeApp(firebaseConfig); }
 const db = firebase.firestore();
 
