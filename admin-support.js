@@ -37,6 +37,10 @@ async function loadSupportMessages() {
 }
 
 // Tout est inséré avec textContent : le contenu des messages vient du public et n'est jamais interprété comme du HTML
+function fmtDate(ms) {
+  return new Date(ms).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' });
+}
+
 function renderSupportMessages(messages) {
   const list = document.getElementById('inbox-list');
   list.replaceChildren();
@@ -54,29 +58,80 @@ function renderSupportMessages(messages) {
     contact.textContent = m.contact;
     const date = document.createElement('span');
     date.className = 'inbox-date';
-    date.textContent = new Date(m.createdAt).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' });
+    date.textContent = fmtDate(m.createdAt);
     meta.append(tag, contact, date);
 
     const text = document.createElement('p');
     text.className = 'inbox-text';
     text.textContent = m.message;
+    item.append(meta, text);
 
-    const actions = document.createElement('div');
-    actions.className = 'inbox-actions';
+    if (m.replies && m.replies.length) {
+      const replies = document.createElement('div');
+      replies.className = 'inbox-replies';
+      m.replies.forEach(r => {
+        const box = document.createElement('div');
+        box.className = 'inbox-reply';
+        const small = document.createElement('small');
+        small.textContent = `Ta réponse · ${fmtDate(r.createdAt)}`;
+        const t = document.createElement('p');
+        t.className = 'inbox-text';
+        t.textContent = r.text;
+        box.append(small, t);
+        replies.append(box);
+      });
+      item.append(replies);
+    }
+
+    // Zone de réponse
+    const form = document.createElement('div');
+    form.className = 'inbox-reply-form';
+    const area = document.createElement('textarea');
+    area.className = 'input';
+    area.maxLength = 2000;
+    area.placeholder = 'Écris ta réponse…';
+    const row = document.createElement('div');
+    row.className = 'row';
+    const send = document.createElement('button');
+    send.type = 'button';
+    send.className = 'btn btn-primary btn-small';
+    send.innerHTML = '<i class="fa-solid fa-reply"></i> Répondre';
+    send.addEventListener('click', () => replySupportMessage(m.id, area, send));
     const del = document.createElement('button');
     del.type = 'button';
     del.className = 'btn btn-ghost btn-small';
     del.innerHTML = '<i class="fa-solid fa-trash"></i> Supprimer';
     del.addEventListener('click', () => deleteSupportMessage(m.id, del));
-    actions.append(del);
+    row.append(send, del);
+    form.append(area, row);
+    item.append(form);
 
-    item.append(meta, text, actions);
     list.append(item);
   });
 }
 
+async function replySupportMessage(id, area, btn) {
+  const text = area.value.trim();
+  if (!text) { area.focus(); return; }
+  btn.disabled = true;
+  try {
+    const res = await fetch(`${SUPPORT_API}/support/${encodeURIComponent(id)}/reply`, {
+      method: 'POST',
+      headers: { ...supportHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text })
+    });
+    const out = await res.json().catch(() => ({}));
+    if (res.status === 403) return backToAdmin();
+    if (!res.ok) throw new Error(out.message || `Erreur ${res.status}`);
+    loadSupportMessages();
+  } catch (err) {
+    btn.disabled = false;
+    alert(`Réponse impossible : ${err.message}`);
+  }
+}
+
 async function deleteSupportMessage(id, btn) {
-  if (!confirm('Supprimer ce message définitivement ?')) return;
+  if (!confirm('Supprimer ce message et ses réponses définitivement ?')) return;
   btn.disabled = true;
   try {
     const res = await fetch(`${SUPPORT_API}/support/${encodeURIComponent(id)}`, { method: 'DELETE', headers: supportHeaders() });

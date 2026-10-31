@@ -115,6 +115,12 @@ input[type="color"].input { padding: 3px; height: 42px; cursor: pointer; }
 .inbox-date { margin-left: auto; }
 .inbox-text { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.55; font-size: 14.5px; }
 .inbox-actions { display: flex; justify-content: flex-end; }
+.inbox-replies { display: grid; gap: 8px; }
+.inbox-reply { border-left: 3px solid var(--ok); background: rgba(91,227,168,.07); border-radius: 0 var(--radius-sm) var(--radius-sm) 0; padding: 9px 12px; display: grid; gap: 3px; }
+.inbox-reply small { color: var(--muted); font-size: 12px; }
+.inbox-reply-form { display: grid; gap: 8px; }
+.inbox-reply-form textarea { min-height: 70px; }
+.inbox-reply-form .row { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
 
 /* ---------- Structure du dashboard ---------- */
 .shell { display: grid; grid-template-columns: 264px 1fr; min-height: 100vh; }

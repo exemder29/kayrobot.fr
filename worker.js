@@ -249,19 +249,78 @@ async function checkAdminCode(request, env, origin) {
 
 const supportSeen = new Map(); // ip -> dernier envoi (limite d'un message par minute, au mieux)
 const SUPPORT_FOOTER = 'KayroBot Support';
+const SUPPORT_REPLY_FOOTER = 'KayroBot Support · Réponse';
+let supportCache = { exp: 0, rows: [] };
 
-// Les messages sont rangés dans un salon Discord privé (variable SUPPORT_CHANNEL_ID du Worker), via le bot
+// Jeton privé d'une demande : calculé à partir de l'identifiant du message et du token du bot, rien à stocker.
+// Il est remis au visiteur à l'envoi : lui seul peut relire sa demande et les réponses.
+async function ticketToken(botToken, id) {
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey('raw', enc.encode(botToken), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const sig = new Uint8Array(await crypto.subtle.sign('HMAC', key, enc.encode(`support:${id}`)));
+  let bin = ''; sig.forEach(b => { bin += String.fromCharCode(b); });
+  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '').slice(0, 32);
+}
+
+// Derniers messages du salon (jusqu'à 300), mis en cache 8 secondes. null si Discord refuse.
+async function loadSupportRows(channelId, botHeaders, fresh) {
+  if (!fresh && supportCache.exp > Date.now()) return supportCache.rows;
+  let rows = []; let before = '';
+  for (let i = 0; i < 3; i++) {
+    const res = await discordFetch(`/channels/${channelId}/messages?limit=100${before ? `&before=${before}` : ''}`, botHeaders);
+    if (!res.ok) return null;
+    const page = await res.json();
+    if (!Array.isArray(page)) return null;
+    rows = rows.concat(page);
+    if (page.length < 100) break;
+    before = page[page.length - 1].id;
+  }
+  supportCache = { exp: Date.now() + 8_000, rows };
+  return rows;
+}
+
+// Transforme les messages du salon en demandes (les plus récentes d'abord), chacune avec ses réponses
+function parseSupport(rows, botId) {
+  const replies = new Map();
+  const requests = [];
+  rows.forEach(r => {
+    const e = r.author && r.author.id === botId && r.embeds && r.embeds[0];
+    if (!e || !e.footer) return;
+    const createdAt = Date.parse(e.timestamp || r.timestamp) || Date.now();
+    if (e.footer.text === SUPPORT_FOOTER) {
+      requests.push({
+        id: r.id, createdAt,
+        subject: String(e.title || '').replace(/^Support · /, ''),
+        contact: ((e.fields || [])[0] || {}).value || '',
+        message: e.description || '',
+        replies: []
+      });
+    } else if (e.footer.text === SUPPORT_REPLY_FOOTER && r.message_reference && r.message_reference.message_id) {
+      const pid = r.message_reference.message_id;
+      if (!replies.has(pid)) replies.set(pid, []);
+      replies.get(pid).push({ id: r.id, createdAt, text: e.description || '' });
+    }
+  });
+  requests.forEach(q => { q.replies = (replies.get(q.id) || []).sort((x, y) => x.createdAt - y.createdAt); });
+  return requests;
+}
+
+// Les messages et les réponses sont rangés dans un salon Discord privé (variable SUPPORT_CHANNEL_ID du Worker), via le bot
 async function supportRoute(request, env, url, origin, botHeaders, botToken) {
   if (!ALLOWED_ORIGINS.includes(origin)) return new Response('Origin non autorisée', { status: 403 });
   const channelId = String(env.SUPPORT_CHANNEL_ID || '').trim();
   if (!SNOWFLAKE.test(channelId)) return json({ message: "Le salon du support n'est pas configuré (variable SUPPORT_CHANNEL_ID sur le Worker)" }, 500, origin);
-  const m = url.pathname.match(/^\/support(?:\/(\d{15,25}))?$/);
+  const m = url.pathname.match(/^\/support(?:\/(mine|\d{15,25})(?:\/(reply))?)?$/);
   if (!m) return json({ message: 'Route inconnue' }, 404, origin);
+  const target = m[1]; const action = m[2];
   const noAccess = () => json({ message: "Le bot n'a pas accès au salon du support" }, 502, origin);
+  const botId = idFromBot(botToken);
+  const readJson = async () => { try { return await request.json(); } catch (e) { return null; } };
 
   // Envoi d'un message (public)
-  if (request.method === 'POST' && !m[1]) {
-    let body; try { body = await request.json(); } catch (e) { return json({ message: 'JSON invalide' }, 400, origin); }
+  if (request.method === 'POST' && !target) {
+    const body = await readJson();
+    if (!body) return json({ message: 'JSON invalide' }, 400, origin);
     if (body.website) return json({ ok: true }, 200, origin); // champ piège : on fait semblant d'accepter
     const subject = String(body.subject || '');
     const contact = String(body.contact || '').trim();
@@ -292,35 +351,76 @@ async function supportRoute(request, env, url, origin, botHeaders, botToken) {
       })
     });
     if (!res.ok) { supportSeen.delete(ip); return noAccess(); }
-    return json({ ok: true }, 200, origin);
+    supportCache.exp = 0;
+    const sent = await res.json().catch(() => ({}));
+    if (!sent.id) return json({ ok: true }, 200, origin);
+    return json({ ok: true, id: sent.id, token: await ticketToken(botToken, sent.id) }, 200, origin);
   }
 
-  // Lecture et suppression : réservées à l'admin
+  // Le visiteur relit ses propres demandes et les réponses (il envoie les jetons qu'il a reçus)
+  if (request.method === 'POST' && target === 'mine' && !action) {
+    const body = await readJson();
+    const tickets = body && Array.isArray(body.tickets) ? body.tickets.slice(0, 20) : [];
+    const allowed = new Set();
+    for (const t of tickets) {
+      if (!t || !SNOWFLAKE.test(String(t.id)) || typeof t.token !== 'string') continue;
+      if (safeEqual(t.token, await ticketToken(botToken, String(t.id)))) allowed.add(String(t.id));
+    }
+    if (!allowed.size) return json({ messages: [] }, 200, origin);
+    const rows = await loadSupportRows(channelId, botHeaders, false);
+    if (!rows) return noAccess();
+    const messages = parseSupport(rows, botId)
+      .filter(q => allowed.has(q.id))
+      .map(q => ({ id: q.id, createdAt: q.createdAt, subject: q.subject, message: q.message, replies: q.replies.map(r => ({ createdAt: r.createdAt, text: r.text })) }));
+    return json({ messages }, 200, origin);
+  }
+
+  // Tout le reste : réservé à l'admin
   const denied = await checkAdminCode(request, env, origin);
   if (denied) return denied;
 
-  if (request.method === 'GET' && !m[1]) {
-    const res = await discordFetch(`/channels/${channelId}/messages?limit=100`, botHeaders);
-    if (!res.ok) return noAccess();
-    const botId = idFromBot(botToken);
-    const rows = await res.json();
-    const messages = (Array.isArray(rows) ? rows : [])
-      .filter(r => r.author && r.author.id === botId && r.embeds && r.embeds[0] && r.embeds[0].footer && r.embeds[0].footer.text === SUPPORT_FOOTER)
-      .map(r => {
-        const e = r.embeds[0];
-        return {
-          id: r.id,
-          createdAt: Date.parse(e.timestamp || r.timestamp) || Date.now(),
-          subject: String(e.title || '').replace(/^Support · /, ''),
-          contact: ((e.fields || [])[0] || {}).value || '',
-          message: e.description || ''
-        };
-      });
-    return json({ messages, more: Array.isArray(rows) && rows.length === 100 }, 200, origin);
+  if (request.method === 'GET' && !target) {
+    const rows = await loadSupportRows(channelId, botHeaders, true);
+    if (!rows) return noAccess();
+    return json({ messages: parseSupport(rows, botId), more: rows.length >= 300 }, 200, origin);
   }
-  if (request.method === 'DELETE' && m[1]) {
-    const res = await fetch(`${DISCORD}/channels/${channelId}/messages/${m[1]}`, { method: 'DELETE', headers: botHeaders });
-    if (!res.ok && res.status !== 404) return noAccess();
+
+  if (request.method === 'POST' && target && target !== 'mine' && action === 'reply') {
+    const body = await readJson();
+    const text = String((body && body.text) || '').trim();
+    if (text.length < 1 || text.length > 2000) return json({ message: 'La réponse doit faire entre 1 et 2000 caractères' }, 400, origin);
+    const rows = await loadSupportRows(channelId, botHeaders, true);
+    if (!rows) return noAccess();
+    if (!parseSupport(rows, botId).some(q => q.id === target)) return json({ message: 'Message introuvable' }, 404, origin);
+    const res = await fetch(`${DISCORD}/channels/${channelId}/messages`, {
+      method: 'POST',
+      headers: { ...botHeaders, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        allowed_mentions: { parse: [], replied_user: false },
+        message_reference: { message_id: target, fail_if_not_exists: false },
+        embeds: [{
+          title: 'Réponse du support',
+          description: text,
+          color: 0x3ddc97,
+          footer: { text: SUPPORT_REPLY_FOOTER },
+          timestamp: new Date().toISOString()
+        }]
+      })
+    });
+    if (!res.ok) return noAccess();
+    supportCache.exp = 0;
+    return json({ ok: true }, 200, origin);
+  }
+
+  if (request.method === 'DELETE' && target && target !== 'mine' && !action) {
+    // On supprime aussi les réponses liées à ce message
+    const rows = await loadSupportRows(channelId, botHeaders, true);
+    const linked = (rows || []).filter(r => r.message_reference && r.message_reference.message_id === target && r.author && r.author.id === botId).map(r => r.id);
+    for (const id of [...linked, target]) {
+      const res = await fetch(`${DISCORD}/channels/${channelId}/messages/${id}`, { method: 'DELETE', headers: botHeaders });
+      if (!res.ok && res.status !== 404) return noAccess();
+    }
+    supportCache.exp = 0;
     return json({ ok: true }, 200, origin);
   }
   return json({ message: 'Méthode non autorisée' }, 405, origin);

@@ -46,6 +46,7 @@ Les messages sont rangés dans un **salon Discord privé** (aucun KV n'est néce
 3. Cloudflare > ton Worker > Settings > **Variables and Secrets** > Add > type **Text**, nom `SUPPORT_CHANNEL_ID`, valeur : l'identifiant copié. Puis **Deploy** avec le nouveau `worker.js`.
 
 - Chaque message envoyé depuis `/support` arrive dans ce salon sous forme d'embed (sujet, contact, texte).
-- Ils se lisent et se suppriment aussi sur `/admin-support`, accessible depuis `/admin` après saisie du code administrateur.
+- Sur `/admin-support` (accessible depuis `/admin` après saisie du code), tu vois tous les messages avec leurs réponses, tu peux répondre et supprimer. Une réponse est postée dans le salon comme réponse au message d'origine.
+- Le visiteur retrouve ses messages et tes réponses dans « Mes messages », sur `/support`. Ils sont liés à son navigateur par un jeton privé reçu à l'envoi.
 - Le Worker vérifie ce code en le comparant à celui de Firestore (`admin/config`). Tu peux ajouter un secret `ADMIN_CODE` sur le Worker, qui sera alors utilisé à la place.
 - Un visiteur ne peut envoyer qu'un message par minute (limite au mieux, côté Worker).

@@ -226,6 +226,22 @@ html { scroll-behavior: smooth; scroll-padding-top: 84px; }
 .support-status.ok { color: var(--ok); }
 .support-status.err { color: var(--warn); }
 
+/* Mes messages (page support) */
+.my-messages { margin-top: 48px; max-width: 640px; display: grid; gap: 14px; scroll-margin-top: 90px; }
+.my-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.my-head h3 { font-size: 24px; font-weight: 800; letter-spacing: -0.03em; }
+.my-note { color: var(--muted); font-size: 13.5px; line-height: 1.55; margin: 0; }
+.my-list { display: grid; gap: 12px; }
+.my-item { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px; display: grid; gap: 10px; }
+.my-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; font-size: 13px; color: var(--muted); }
+.my-tag { background: rgba(88,101,242,.16); color: var(--accent-text); border-radius: 999px; padding: 2px 10px; font-weight: 700; font-size: 12px; }
+.my-state { margin-left: auto; font-family: var(--mono); font-size: 12px; color: var(--warn); }
+.my-state.done { color: var(--ok); }
+.my-text { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.6; font-size: 14.5px; }
+.my-reply { border-left: 3px solid var(--ok); background: rgba(61,220,151,.07); border-radius: 0 10px 10px 0; padding: 10px 14px; display: grid; gap: 4px; }
+.my-reply strong { font-size: 13px; color: var(--ok); }
+.my-reply .my-date { font-size: 12px; color: var(--muted); }
+
 /* Statut */
 .status-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
 .status-card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 22px; display: grid; gap: 8px; }
