@@ -220,6 +220,8 @@ html { scroll-behavior: smooth; scroll-padding-top: 84px; }
 .support-form .field > span { color: var(--muted); }
 .support-form .hp { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
 .support-form .btn { justify-self: start; }
+.support-action { display: flex; align-items: center; justify-content: flex-end; align-self: center; }
+.support-card.single { grid-template-columns: 1fr; max-width: 640px; margin: 0; }
 .support-status { min-height: 1.4em; margin: 0; font-size: 14px; color: var(--muted); }
 .support-status.ok { color: var(--ok); }
 .support-status.err { color: var(--warn); }
@@ -268,7 +270,8 @@ html { scroll-behavior: smooth; scroll-padding-top: 84px; }
   .cmd-list { grid-template-columns: 1fr; }
   .lp-section { padding: 64px 0; }
   .support-card { padding: 24px; gap: 24px; }
-  .support-form .btn { justify-self: stretch; }
+  .support-form .btn, .support-action .btn { justify-self: stretch; width: 100%; }
+  .support-action { justify-content: stretch; }
 }
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }

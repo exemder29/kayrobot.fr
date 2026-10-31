@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+  <title>KayroBot – Messages du support</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="stylesheet" href="style.css">
+<script>
+  (function () {
+    var p = location.pathname.replace(/index\.html$/, '').replace(/\.html$/, '');
+    if (p !== location.pathname) history.replaceState(null, '', p + location.search + location.hash);
+  })();
+</script>
+</head>
+<body>
+  <main class="center-screen">
+    <section class="login-card wide">
+      <div class="logo" aria-hidden="true"><i class="fa-solid fa-inbox" style="font-size:22px"></i></div>
+      <div>
+        <h1>Messages du support</h1>
+        <p class="lead">Les demandes envoyées depuis la page « Contacter le support ».</p>
+      </div>
+
+      <section class="inbox" aria-labelledby="inbox-title">
+        <div class="inbox-head">
+          <h2 id="inbox-title">Reçus <span class="inbox-count" id="inbox-count">0</span></h2>
+          <button type="button" id="inbox-refresh" class="btn btn-ghost btn-small"><i class="fa-solid fa-rotate"></i> Actualiser</button>
+        </div>
+        <p id="inbox-status" class="fine">Chargement…</p>
+        <div id="inbox-list" class="inbox-list"></div>
+      </section>
+
+      <div class="stack">
+        <a href="admin" class="btn btn-ghost"><i class="fa-solid fa-arrow-left"></i> Retour à l'espace admin</a>
+      </div>
+    </section>
+  </main>
+
+  <script src="admin-support.js"></script>
+</body>
+</html>

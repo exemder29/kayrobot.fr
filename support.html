@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KayroBot – Contacter le support</title>
+  <meta name="description" content="Un problème avec une commande, les tickets ou le dashboard de KayroBot ? Écris au support.">
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="landing.css">
+<script>
+  (function () {
+    var p = location.pathname.replace(/index\.html$/, '').replace(/\.html$/, '');
+    if (p !== location.pathname) history.replaceState(null, '', p + location.search + location.hash);
+  })();
+</script>
+</head>
+<body class="lp">
+
+<header class="lp-header">
+  <div class="lp-wrap lp-bar">
+    <a class="lp-brand" href="./"><img src="logo.png" alt="" width="30" height="30"> KayroBot</a>
+    <a class="btn btn-ghost btn-small" style="margin-left:auto" href="./#aide"><i class="fa-solid fa-arrow-left"></i> Retour à l'aide</a>
+  </div>
+</header>
+
+<main>
+  <section class="lp-section">
+    <div class="lp-wrap">
+      <div class="lp-head">
+        <p class="eyebrow">// support</p>
+        <h2>Contacter le support</h2>
+        <p>Une commande qui ne répond pas, un souci avec les tickets ou le dashboard : décris ce qui se passe et ton message arrive directement à l'équipe.</p>
+      </div>
+
+      <div class="support-card single">
+        <form class="support-form" id="support-form" novalidate>
+          <label class="field">
+            <span>Sujet</span>
+            <select class="input" name="subject" id="support-subject" required>
+              <option value="Commandes">Un problème avec une commande</option>
+              <option value="Tickets">Un problème avec les tickets</option>
+              <option value="Dashboard">Un problème avec le dashboard</option>
+              <option value="Autre">Autre</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>Comment te répondre ?</span>
+            <input class="input" type="text" name="contact" id="support-contact" maxlength="120" placeholder="Ton pseudo Discord ou ton e-mail" autocomplete="off" required>
+          </label>
+          <label class="field">
+            <span>Ton message</span>
+            <textarea class="input" name="message" id="support-message" rows="6" minlength="10" maxlength="2000" placeholder="Que s'est-il passé ? Quelle commande, quel serveur, quel message d'erreur ?" required></textarea>
+          </label>
+          <input class="hp" type="text" name="website" id="support-website" tabindex="-1" autocomplete="off" aria-hidden="true">
+          <button type="submit" class="btn btn-primary" id="support-send"><i class="fa-solid fa-paper-plane"></i> Envoyer au support</button>
+          <p class="support-status" id="support-status" role="status" aria-live="polite"></p>
+        </form>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="lp-footer">
+  <div class="lp-wrap">
+    <span>© 2026 KayroBot</span>
+    <nav aria-label="Liens du pied de page">
+      <a href="./">Accueil</a>
+      <a href="./#aide">Aide</a>
+      <a href="dashboard">Dashboard</a>
+    </nav>
+  </div>
+</footer>
+
+<script>
+  var BOT_PROXY_URL = 'https://kayrobot-proxy.exem029.workers.dev';
+  (function () {
+    var form = document.getElementById('support-form');
+    var btn = document.getElementById('support-send');
+    var status = document.getElementById('support-status');
+    function say(text, kind) { status.textContent = text; status.className = 'support-status' + (kind ? ' ' + kind : ''); }
+
+    form.addEventListener('submit', async function (e) {
+      e.preventDefault();
+      var data = {
+        subject: form.subject.value,
+        contact: form.contact.value.trim(),
+        message: form.message.value.trim(),
+        website: form.website.value
+      };
+      if (data.contact.length < 3) return say("Indique un pseudo Discord ou un e-mail pour qu'on puisse te répondre.", 'err');
+      if (data.message.length < 10) return say('Ton message est un peu court : explique le problème en quelques mots de plus.', 'err');
+
+      btn.disabled = true;
+      say('Envoi en cours…');
+      try {
+        var res = await fetch(BOT_PROXY_URL + '/support', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+        var out = await res.json().catch(function () { return {}; });
+        if (!res.ok) throw new Error(out.message || 'Envoi impossible pour le moment');
+        form.reset();
+        say("Message envoyé, merci ! Il est bien arrivé à l'équipe.", 'ok');
+      } catch (err) {
+        say(err.message || 'Envoi impossible pour le moment, réessaie dans un instant.', 'err');
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  })();
+</script>
+</body>
+</html>

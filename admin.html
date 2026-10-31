@@ -44,23 +44,16 @@
     </section>
 
     <!-- Panneau admin (visible après validation du code) -->
-    <section id="admin-panel" class="login-card wide hidden">
+    <section id="admin-panel" class="login-card hidden">
       <div class="logo" aria-hidden="true"><i class="fa-solid fa-key" style="font-size:22px"></i></div>
       <div>
         <h1>Configuration</h1>
         <p class="lead">Accès administrateur validé.</p>
       </div>
       <div class="notice">Le token du bot est gardé en secret sur le Worker Cloudflare. Pour le changer, modifie la variable <b>BOT_TOKEN</b> dans Cloudflare.</div>
-      <section class="inbox" aria-labelledby="inbox-title">
-        <div class="inbox-head">
-          <h2 id="inbox-title">Messages du support <span class="inbox-count" id="inbox-count">0</span></h2>
-          <button type="button" onclick="loadSupportMessages()" class="btn btn-ghost btn-small"><i class="fa-solid fa-rotate"></i> Actualiser</button>
-        </div>
-        <p id="inbox-status" class="fine">Chargement…</p>
-        <div id="inbox-list" class="inbox-list"></div>
-      </section>
       <div class="stack">
-        <a href="dashboard" class="btn btn-primary">Ouvrir le tableau de bord</a>
+        <a href="admin-support" class="btn btn-primary"><i class="fa-solid fa-inbox"></i> Messages du support</a>
+        <a href="dashboard" class="btn">Ouvrir le tableau de bord</a>
         <button onclick="logoutAdmin()" class="btn btn-ghost"><i class="fa-solid fa-lock"></i> Verrouiller</button>
       </div>
     </section>
