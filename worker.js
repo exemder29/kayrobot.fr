@@ -202,9 +202,8 @@ async function botRoute(request, env, url) {
   return plain({ message: 'Méthode non autorisée' }, 405);
 }
 
-// ---------- Support : messages envoyés depuis la page d'accueil, lus dans l'espace admin ----------
+// ---------- Support : messages envoyés depuis la page /support, lus dans l'espace admin (aucun KV nécessaire) ----------
 const SUPPORT_SUBJECTS = new Set(['Commandes', 'Tickets', 'Dashboard', 'Autre']);
-const SUPPORT_TTL = 60 * 60 * 24 * 90; // les messages disparaissent seuls au bout de 90 jours
 const adminFails = new Map(); // ip -> { count, exp } (limite les essais de code, au mieux)
 let adminCodeCache = { exp: 0, code: '' };
 
@@ -248,11 +247,17 @@ async function checkAdminCode(request, env, origin) {
   return null;
 }
 
-async function supportRoute(request, env, url, origin) {
+const supportSeen = new Map(); // ip -> dernier envoi (limite d'un message par minute, au mieux)
+const SUPPORT_FOOTER = 'KayroBot Support';
+
+// Les messages sont rangés dans un salon Discord privé (variable SUPPORT_CHANNEL_ID du Worker), via le bot
+async function supportRoute(request, env, url, origin, botHeaders, botToken) {
   if (!ALLOWED_ORIGINS.includes(origin)) return new Response('Origin non autorisée', { status: 403 });
-  const kvErr = kvOrError(env, origin); if (kvErr) return kvErr;
-  const m = url.pathname.match(/^\/support(?:\/(\d{13}-[a-z0-9]+))?$/);
+  const channelId = String(env.SUPPORT_CHANNEL_ID || '').trim();
+  if (!SNOWFLAKE.test(channelId)) return json({ message: "Le salon du support n'est pas configuré (variable SUPPORT_CHANNEL_ID sur le Worker)" }, 500, origin);
+  const m = url.pathname.match(/^\/support(?:\/(\d{15,25}))?$/);
   if (!m) return json({ message: 'Route inconnue' }, 404, origin);
+  const noAccess = () => json({ message: "Le bot n'a pas accès au salon du support" }, 502, origin);
 
   // Envoi d'un message (public)
   if (request.method === 'POST' && !m[1]) {
@@ -262,18 +267,31 @@ async function supportRoute(request, env, url, origin) {
     const contact = String(body.contact || '').trim();
     const message = String(body.message || '').trim();
     if (!SUPPORT_SUBJECTS.has(subject)) return json({ message: 'Choisis un sujet' }, 400, origin);
-    if (contact.length < 3 || contact.length > 120) return json({ message: 'Indique un pseudo Discord ou un e-mail pour qu\'on puisse te répondre' }, 400, origin);
+    if (contact.length < 3 || contact.length > 120) return json({ message: "Indique un pseudo Discord ou un e-mail pour qu'on puisse te répondre" }, 400, origin);
     if (message.length < 10 || message.length > 2000) return json({ message: 'Le message doit faire entre 10 et 2000 caractères' }, 400, origin);
 
     const ip = request.headers.get('CF-Connecting-IP') || 'inconnue';
-    const rlKey = `support-rl:${ip}`;
-    if (await env.CONFIG.get(rlKey)) return json({ message: "Un message vient d'être envoyé, patiente une minute avant le suivant" }, 429, origin);
+    const last = supportSeen.get(ip) || 0;
+    if (Date.now() - last < 60_000) return json({ message: "Un message vient d'être envoyé, patiente une minute avant le suivant" }, 429, origin);
+    if (supportSeen.size > 500) supportSeen.clear();
+    supportSeen.set(ip, Date.now());
 
-    const createdAt = Date.now();
-    // Clé inversée dans le temps : les plus récents sortent en premier à la lecture
-    const id = `${String(9999999999999 - createdAt).padStart(13, '0')}-${Math.random().toString(36).slice(2, 7)}`;
-    await env.CONFIG.put(`support:${id}`, JSON.stringify({ id, createdAt, subject, contact, message }), { expirationTtl: SUPPORT_TTL });
-    await env.CONFIG.put(rlKey, '1', { expirationTtl: 60 });
+    const res = await fetch(`${DISCORD}/channels/${channelId}/messages`, {
+      method: 'POST',
+      headers: { ...botHeaders, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        allowed_mentions: { parse: [] },
+        embeds: [{
+          title: `Support · ${subject}`,
+          description: message,
+          color: 0x5865f2,
+          fields: [{ name: 'Contact', value: contact }],
+          footer: { text: SUPPORT_FOOTER },
+          timestamp: new Date().toISOString()
+        }]
+      })
+    });
+    if (!res.ok) { supportSeen.delete(ip); return noAccess(); }
     return json({ ok: true }, 200, origin);
   }
 
@@ -282,13 +300,27 @@ async function supportRoute(request, env, url, origin) {
   if (denied) return denied;
 
   if (request.method === 'GET' && !m[1]) {
-    const list = await env.CONFIG.list({ prefix: 'support:', limit: 100 });
-    const rows = await Promise.all(list.keys.map(k => env.CONFIG.get(k.name)));
-    const messages = rows.map(r => { try { return r ? JSON.parse(r) : null; } catch (e) { return null; } }).filter(Boolean);
-    return json({ messages, more: !list.list_complete }, 200, origin);
+    const res = await discordFetch(`/channels/${channelId}/messages?limit=100`, botHeaders);
+    if (!res.ok) return noAccess();
+    const botId = idFromBot(botToken);
+    const rows = await res.json();
+    const messages = (Array.isArray(rows) ? rows : [])
+      .filter(r => r.author && r.author.id === botId && r.embeds && r.embeds[0] && r.embeds[0].footer && r.embeds[0].footer.text === SUPPORT_FOOTER)
+      .map(r => {
+        const e = r.embeds[0];
+        return {
+          id: r.id,
+          createdAt: Date.parse(e.timestamp || r.timestamp) || Date.now(),
+          subject: String(e.title || '').replace(/^Support · /, ''),
+          contact: ((e.fields || [])[0] || {}).value || '',
+          message: e.description || ''
+        };
+      });
+    return json({ messages, more: Array.isArray(rows) && rows.length === 100 }, 200, origin);
   }
   if (request.method === 'DELETE' && m[1]) {
-    await env.CONFIG.delete(`support:${m[1]}`);
+    const res = await fetch(`${DISCORD}/channels/${channelId}/messages/${m[1]}`, { method: 'DELETE', headers: botHeaders });
+    if (!res.ok && res.status !== 404) return noAccess();
     return json({ ok: true }, 200, origin);
   }
   return json({ message: 'Méthode non autorisée' }, 405, origin);
@@ -311,12 +343,12 @@ export default {
     const origin = request.headers.get('Origin') || '';
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors(origin) });
 
-    // Messages du support (ne dépend pas du token du bot)
-    if (/^\/support(\/|$)/.test(path)) return supportRoute(request, env, url, origin);
-
     const BOT_TOKEN = cleanToken(env.BOT_TOKEN);
     if (!BOT_TOKEN) return json({ message: 'BOT_TOKEN non configuré sur le Worker' }, 500, origin);
     const botHeaders = { Authorization: `Bot ${BOT_TOKEN}` };
+
+    // Messages du support (rangés dans un salon Discord)
+    if (/^\/support(\/|$)/.test(path)) return supportRoute(request, env, url, origin, botHeaders, BOT_TOKEN);
 
     // ---- Routes publiques (aucune donnée sensible) : page d'accueil et diagnostic ----
 

@@ -37,11 +37,15 @@ Remplace les fichiers du dépôt par ceux du zip, puis recharge la page avec Ctr
 
 `/serveur` et `/serveur-annuler` restent à lancer dans Discord (création et suppression de toute la structure du serveur), ainsi que `/aide` et `/aide-plus`.
 
-## Support (formulaire « Contacter le support »)
+## Support (page « Contacter le support »)
 
-Le bouton « Contacter le support » au bas de la section Aide mène à la page `/support`, dont le formulaire envoie le message au Worker (route `/support`), qui le range dans le même KV `CONFIG`. Il suffit de redéployer le nouveau `worker.js` : rien d'autre à configurer.
+Les messages sont rangés dans un **salon Discord privé** (aucun KV n'est nécessaire pour cette partie).
 
-- Les messages se lisent et se suppriment sur la page `/admin-support`, accessible depuis l'espace admin (`/admin`) après saisie du code administrateur.
-- Le Worker vérifie ce code lui-même, en le comparant à celui de Firestore (`admin/config`). Tu peux aussi ajouter un secret `ADMIN_CODE` sur le Worker, qui sera alors utilisé à la place.
-- Un message est supprimé automatiquement au bout de 90 jours. Un visiteur ne peut en envoyer qu'un par minute.
-- Coût KV : 2 écritures par message envoyé, et 1 lecture par message affiché à chaque ouverture ou actualisation de la liste (100 messages au maximum).
+1. Dans Discord, crée un salon privé réservé au staff, où le bot peut **voir le salon, envoyer des messages, intégrer des liens et lire l'historique**.
+2. Active le mode développeur (Paramètres > Avancés), fais un clic droit sur le salon > **Copier l'identifiant du salon**.
+3. Cloudflare > ton Worker > Settings > **Variables and Secrets** > Add > type **Text**, nom `SUPPORT_CHANNEL_ID`, valeur : l'identifiant copié. Puis **Deploy** avec le nouveau `worker.js`.
+
+- Chaque message envoyé depuis `/support` arrive dans ce salon sous forme d'embed (sujet, contact, texte).
+- Ils se lisent et se suppriment aussi sur `/admin-support`, accessible depuis `/admin` après saisie du code administrateur.
+- Le Worker vérifie ce code en le comparant à celui de Firestore (`admin/config`). Tu peux ajouter un secret `ADMIN_CODE` sur le Worker, qui sera alors utilisé à la place.
+- Un visiteur ne peut envoyer qu'un message par minute (limite au mieux, côté Worker).
