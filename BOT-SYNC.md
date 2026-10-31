@@ -36,3 +36,12 @@ Remplace les fichiers du dépôt par ceux du zip, puis recharge la page avec Ctr
 ## Pas sur le site
 
 `/serveur` et `/serveur-annuler` restent à lancer dans Discord (création et suppression de toute la structure du serveur), ainsi que `/aide` et `/aide-plus`.
+
+## Support (formulaire « Contacter le support »)
+
+Le formulaire au bas de la section Aide envoie le message au Worker (route `/support`), qui le range dans le même KV `CONFIG`. Il suffit de redéployer le nouveau `worker.js` : rien d'autre à configurer.
+
+- Les messages se lisent et se suppriment dans l'espace admin (`/admin`), après saisie du code administrateur.
+- Le Worker vérifie ce code lui-même, en le comparant à celui de Firestore (`admin/config`). Tu peux aussi ajouter un secret `ADMIN_CODE` sur le Worker, qui sera alors utilisé à la place.
+- Un message est supprimé automatiquement au bout de 90 jours. Un visiteur ne peut en envoyer qu'un par minute.
+- Coût KV : 2 écritures par message envoyé, et 1 lecture par message affiché à chaque ouverture ou actualisation de la liste (100 messages au maximum).

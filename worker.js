@@ -36,7 +36,7 @@ function cors(origin) {
   return {
     'Access-Control-Allow-Origin': ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[1],
     'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
-    'Access-Control-Allow-Headers': 'Authorization, Content-Type, X-Guild-Id, X-Audit-Log-Reason',
+    'Access-Control-Allow-Headers': 'Authorization, Content-Type, X-Guild-Id, X-Audit-Log-Reason, X-Admin-Code',
     'Access-Control-Max-Age': '86400',
     'Vary': 'Origin'
   };
@@ -202,6 +202,98 @@ async function botRoute(request, env, url) {
   return plain({ message: 'Méthode non autorisée' }, 405);
 }
 
+// ---------- Support : messages envoyés depuis la page d'accueil, lus dans l'espace admin ----------
+const SUPPORT_SUBJECTS = new Set(['Commandes', 'Tickets', 'Dashboard', 'Autre']);
+const SUPPORT_TTL = 60 * 60 * 24 * 90; // les messages disparaissent seuls au bout de 90 jours
+const adminFails = new Map(); // ip -> { count, exp } (limite les essais de code, au mieux)
+let adminCodeCache = { exp: 0, code: '' };
+
+function safeEqual(a, b) {
+  a = String(a); b = String(b);
+  let diff = a.length ^ b.length;
+  const n = Math.max(a.length, b.length);
+  for (let i = 0; i < n; i++) diff |= (a.charCodeAt(i) || 0) ^ (b.charCodeAt(i) || 0);
+  return diff === 0;
+}
+
+// Code admin : secret ADMIN_CODE s'il existe, sinon le même code que la page admin (Firestore admin/config)
+async function getAdminCode(env) {
+  if (env.ADMIN_CODE) return String(env.ADMIN_CODE).trim();
+  if (adminCodeCache.exp > Date.now()) return adminCodeCache.code;
+  const res = await fetch('https://firestore.googleapis.com/v1/projects/kayrobot-discord/databases/(default)/documents/admin/config');
+  if (!res.ok) throw new Error(`Firestore ${res.status}`);
+  const f = ((await res.json()).fields || {}).code || {};
+  const code = String(f.stringValue ?? f.integerValue ?? '').trim();
+  if (!code) throw new Error('code absent');
+  adminCodeCache = { exp: Date.now() + 60_000, code };
+  return code;
+}
+
+// Renvoie null si le code est bon, sinon la réponse d'erreur à renvoyer
+async function checkAdminCode(request, env, origin) {
+  const ip = request.headers.get('CF-Connecting-IP') || 'inconnue';
+  const prev = adminFails.get(ip);
+  const active = prev && prev.exp > Date.now() ? prev : null;
+  if (active && active.count >= 10) return json({ message: "Trop d'essais, réessaie dans quelques minutes" }, 429, origin);
+  const given = (request.headers.get('X-Admin-Code') || '').trim();
+  let expected;
+  try { expected = await getAdminCode(env); } catch (e) { return json({ message: 'Impossible de vérifier le code admin' }, 503, origin); }
+  if (!given || !safeEqual(given, expected)) {
+    if (adminFails.size > 500) adminFails.clear();
+    const cur = active || { count: 0, exp: Date.now() + 600_000 };
+    cur.count++;
+    adminFails.set(ip, cur);
+    return json({ message: 'Code administrateur invalide' }, 403, origin);
+  }
+  return null;
+}
+
+async function supportRoute(request, env, url, origin) {
+  if (!ALLOWED_ORIGINS.includes(origin)) return new Response('Origin non autorisée', { status: 403 });
+  const kvErr = kvOrError(env, origin); if (kvErr) return kvErr;
+  const m = url.pathname.match(/^\/support(?:\/(\d{13}-[a-z0-9]+))?$/);
+  if (!m) return json({ message: 'Route inconnue' }, 404, origin);
+
+  // Envoi d'un message (public)
+  if (request.method === 'POST' && !m[1]) {
+    let body; try { body = await request.json(); } catch (e) { return json({ message: 'JSON invalide' }, 400, origin); }
+    if (body.website) return json({ ok: true }, 200, origin); // champ piège : on fait semblant d'accepter
+    const subject = String(body.subject || '');
+    const contact = String(body.contact || '').trim();
+    const message = String(body.message || '').trim();
+    if (!SUPPORT_SUBJECTS.has(subject)) return json({ message: 'Choisis un sujet' }, 400, origin);
+    if (contact.length < 3 || contact.length > 120) return json({ message: 'Indique un pseudo Discord ou un e-mail pour qu\'on puisse te répondre' }, 400, origin);
+    if (message.length < 10 || message.length > 2000) return json({ message: 'Le message doit faire entre 10 et 2000 caractères' }, 400, origin);
+
+    const ip = request.headers.get('CF-Connecting-IP') || 'inconnue';
+    const rlKey = `support-rl:${ip}`;
+    if (await env.CONFIG.get(rlKey)) return json({ message: "Un message vient d'être envoyé, patiente une minute avant le suivant" }, 429, origin);
+
+    const createdAt = Date.now();
+    // Clé inversée dans le temps : les plus récents sortent en premier à la lecture
+    const id = `${String(9999999999999 - createdAt).padStart(13, '0')}-${Math.random().toString(36).slice(2, 7)}`;
+    await env.CONFIG.put(`support:${id}`, JSON.stringify({ id, createdAt, subject, contact, message }), { expirationTtl: SUPPORT_TTL });
+    await env.CONFIG.put(rlKey, '1', { expirationTtl: 60 });
+    return json({ ok: true }, 200, origin);
+  }
+
+  // Lecture et suppression : réservées à l'admin
+  const denied = await checkAdminCode(request, env, origin);
+  if (denied) return denied;
+
+  if (request.method === 'GET' && !m[1]) {
+    const list = await env.CONFIG.list({ prefix: 'support:', limit: 100 });
+    const rows = await Promise.all(list.keys.map(k => env.CONFIG.get(k.name)));
+    const messages = rows.map(r => { try { return r ? JSON.parse(r) : null; } catch (e) { return null; } }).filter(Boolean);
+    return json({ messages, more: !list.list_complete }, 200, origin);
+  }
+  if (request.method === 'DELETE' && m[1]) {
+    await env.CONFIG.delete(`support:${m[1]}`);
+    return json({ ok: true }, 200, origin);
+  }
+  return json({ message: 'Méthode non autorisée' }, 405, origin);
+}
+
 // Nettoyage strict du token : retire guillemets, préfixe « Bot », espaces, retours à la ligne, caractères invisibles
 function cleanToken(raw) {
   return String(raw || '')
@@ -218,6 +310,9 @@ export default {
 
     const origin = request.headers.get('Origin') || '';
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors(origin) });
+
+    // Messages du support (ne dépend pas du token du bot)
+    if (/^\/support(\/|$)/.test(path)) return supportRoute(request, env, url, origin);
 
     const BOT_TOKEN = cleanToken(env.BOT_TOKEN);
     if (!BOT_TOKEN) return json({ message: 'BOT_TOKEN non configuré sur le Worker' }, 500, origin);

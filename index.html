@@ -262,6 +262,37 @@
           </details>
         </div>
       </div>
+
+      <!-- Contacter le support -->
+      <div class="support-card" id="support">
+        <div class="support-intro">
+          <p class="eyebrow">// support</p>
+          <h3>Un problème ? Contacter le support</h3>
+          <p>Une commande qui ne répond pas, un souci avec les tickets ou le dashboard : décris ce qui se passe et ton message arrive directement à l'équipe.</p>
+        </div>
+        <form class="support-form" id="support-form" novalidate>
+          <label class="field">
+            <span>Sujet</span>
+            <select class="input" name="subject" id="support-subject" required>
+              <option value="Commandes">Un problème avec une commande</option>
+              <option value="Tickets">Un problème avec les tickets</option>
+              <option value="Dashboard">Un problème avec le dashboard</option>
+              <option value="Autre">Autre</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>Comment te répondre ?</span>
+            <input class="input" type="text" name="contact" id="support-contact" maxlength="120" placeholder="Ton pseudo Discord ou ton e-mail" autocomplete="off" required>
+          </label>
+          <label class="field">
+            <span>Ton message</span>
+            <textarea class="input" name="message" id="support-message" rows="5" minlength="10" maxlength="2000" placeholder="Que s'est-il passé ? Quelle commande, quel serveur, quel message d'erreur ?" required></textarea>
+          </label>
+          <input class="hp" type="text" name="website" id="support-website" tabindex="-1" autocomplete="off" aria-hidden="true">
+          <button type="submit" class="btn btn-primary" id="support-send"><i class="fa-solid fa-paper-plane"></i> Envoyer au support</button>
+          <p class="support-status" id="support-status" role="status" aria-live="polite"></p>
+        </form>
+      </div>
     </div>
   </section>
 
@@ -303,6 +334,7 @@
       <a href="#fonctionnalites">Fonctionnalités</a>
       <a href="#commandes">Commandes</a>
       <a href="#aide">Aide</a>
+      <a href="#support">Support</a>
       <a href="dashboard">Dashboard</a>
       <a href="admin">Admin</a>
     </nav>
@@ -438,6 +470,46 @@ const BOT_PROXY_URL = 'https://kayrobot-proxy.exem029.workers.dev';
     pillText.textContent = 'Statut indisponible';
   }
 })();
+</script>
+<script>
+  // Formulaire « Contacter le support » : envoie le message au Worker (BOT_PROXY_URL est défini plus haut)
+  (function () {
+    var form = document.getElementById('support-form');
+    if (!form) return;
+    var btn = document.getElementById('support-send');
+    var status = document.getElementById('support-status');
+    function say(text, kind) { status.textContent = text; status.className = 'support-status' + (kind ? ' ' + kind : ''); }
+
+    form.addEventListener('submit', async function (e) {
+      e.preventDefault();
+      var data = {
+        subject: form.subject.value,
+        contact: form.contact.value.trim(),
+        message: form.message.value.trim(),
+        website: form.website.value
+      };
+      if (data.contact.length < 3) return say("Indique un pseudo Discord ou un e-mail pour qu'on puisse te répondre.", 'err');
+      if (data.message.length < 10) return say('Ton message est un peu court : explique le problème en quelques mots de plus.', 'err');
+
+      btn.disabled = true;
+      say('Envoi en cours…');
+      try {
+        var res = await fetch(BOT_PROXY_URL + '/support', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+        var out = await res.json().catch(function () { return {}; });
+        if (!res.ok) throw new Error(out.message || 'Envoi impossible pour le moment');
+        form.reset();
+        say('Message envoyé, merci ! Il est bien arrivé à l\'équipe.', 'ok');
+      } catch (err) {
+        say(err.message || 'Envoi impossible pour le moment, réessaie dans un instant.', 'err');
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  })();
 </script>
 <script>
   // Si tu t'es déjà connecté, le bouton mène direct au dashboard (qui renouvelle la connexion tout seul)

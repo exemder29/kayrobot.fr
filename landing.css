@@ -211,6 +211,19 @@ html { scroll-behavior: smooth; scroll-padding-top: 84px; }
 .faq details p { color: var(--muted); padding: 0 0 16px; font-size: 14.5px; line-height: 1.6; }
 .faq b { color: var(--text); }
 
+/* Contacter le support */
+.support-card { margin-top: 56px; scroll-margin-top: 90px; background: var(--panel); border: 1px solid var(--line); border-radius: 20px; padding: 36px; display: grid; grid-template-columns: 1fr 1.2fr; gap: 40px; align-items: start; }
+.support-intro .eyebrow { margin: 0 0 12px; }
+.support-intro h3 { font-size: 26px; font-weight: 800; letter-spacing: -0.03em; }
+.support-intro p:not(.eyebrow) { color: var(--muted); font-size: 15px; line-height: 1.6; margin-top: 12px; }
+.support-form { display: grid; gap: 16px; }
+.support-form .field > span { color: var(--muted); }
+.support-form .hp { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.support-form .btn { justify-self: start; }
+.support-status { min-height: 1.4em; margin: 0; font-size: 14px; color: var(--muted); }
+.support-status.ok { color: var(--ok); }
+.support-status.err { color: var(--warn); }
+
 /* Statut */
 .status-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
 .status-card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 22px; display: grid; gap: 8px; }
@@ -233,7 +246,7 @@ html { scroll-behavior: smooth; scroll-padding-top: 84px; }
 
 /* ---------- Mobile ---------- */
 @media (max-width: 960px) {
-  .lp-hero-grid, .help-grid { grid-template-columns: 1fr; }
+  .lp-hero-grid, .help-grid, .support-card { grid-template-columns: 1fr; }
   .lp-hero { padding: 44px 0 64px; }
   .dc-wrap { margin-right: 14px; }
   .dc-wrap::after { inset: 14px -14px -14px 14px; }
@@ -254,6 +267,8 @@ html { scroll-behavior: smooth; scroll-padding-top: 84px; }
   .dc-top .topic, .dc-top .tools { display: none; }
   .cmd-list { grid-template-columns: 1fr; }
   .lp-section { padding: 64px 0; }
+  .support-card { padding: 24px; gap: 24px; }
+  .support-form .btn { justify-self: stretch; }
 }
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
