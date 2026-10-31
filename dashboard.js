@@ -346,29 +346,116 @@ const memberLabel = m => {
   return u.username && main !== u.username ? `${main} (@${u.username})` : main;
 };
 
-// Relie une liste de suggestions à tous les champs qui attendent un membre
-function bindMemberInputs() {
-  let dl = document.getElementById('member-suggestions');
-  if (!dl) { dl = document.createElement('datalist'); dl.id = 'member-suggestions'; document.body.appendChild(dl); }
-  dl.innerHTML = '';
-  guildMembersList.forEach(m => {
-    const o = document.createElement('option');
-    o.value = m.user.id;
-    o.label = memberLabel(m);
-    dl.appendChild(o);
+// ---------- Sélecteur de membre : barre de recherche avec pseudo et photo ----------
+const memberAvatar = m => {
+  const u = m.user || {};
+  return u.avatar ? `https://cdn.discordapp.com/avatars/${u.id}/${u.avatar}.png?size=64` : 'https://cdn.discordapp.com/embed/avatars/0.png';
+};
+const memberSearchText = m => `${m.nick || ''} ${(m.user || {}).global_name || ''} ${(m.user || {}).username || ''} ${(m.user || {}).id || ''}`.toLowerCase();
+
+function initMemberPicker(inp) {
+  if (inp.dataset.mpBound) return;
+  inp.dataset.mpBound = '1';
+  inp.setAttribute('autocomplete', 'off');
+  inp.placeholder = 'Rechercher un membre (pseudo ou ID)';
+  inp.removeAttribute('inputmode');
+  const sp = inp.closest('label')?.querySelector('span');
+  if (sp) sp.textContent = sp.textContent.replace(/^ID du membre/i, 'Membre');
+
+  const wrap = document.createElement('div');
+  wrap.className = 'mp';
+  inp.parentNode.insertBefore(wrap, inp);
+  wrap.appendChild(inp);
+  const avatar = document.createElement('img');
+  avatar.className = 'mp-avatar hidden'; avatar.alt = '';
+  const list = document.createElement('div');
+  list.className = 'mp-list hidden'; list.setAttribute('role', 'listbox');
+  wrap.append(avatar, list);
+
+  let items = [], active = -1, timer = null, seq = 0;
+
+  const close = () => { list.classList.add('hidden'); active = -1; };
+  const clearChoice = () => { delete inp.dataset.userId; delete inp.dataset.label; avatar.classList.add('hidden'); inp.classList.remove('mp-chosen'); };
+  const choose = m => {
+    inp.value = memberLabel(m);
+    inp.dataset.userId = m.user.id; inp.dataset.label = inp.value;
+    avatar.src = memberAvatar(m); avatar.classList.remove('hidden'); inp.classList.add('mp-chosen');
+    close();
+    inp.dispatchEvent(new Event('change', { bubbles: true }));
+  };
+  const paint = (hint) => {
+    list.innerHTML = '';
+    if (!items.length) {
+      const e = document.createElement('div');
+      e.className = 'mp-empty';
+      e.textContent = hint || (guildMembersList.length || inp.value.trim().length >= 2 ? 'Aucun membre trouvé. Tu peux aussi coller un ID.' : 'Tape un pseudo pour chercher un membre.');
+      list.appendChild(e);
+    }
+    items.forEach((m, i) => {
+      const row = document.createElement('div');
+      row.className = 'mp-item' + (i === active ? ' active' : ''); row.setAttribute('role', 'option');
+      const img = document.createElement('img'); img.src = memberAvatar(m); img.alt = ''; img.loading = 'lazy';
+      const txt = document.createElement('span');
+      const name = document.createElement('b'); name.textContent = m.nick || (m.user || {}).global_name || (m.user || {}).username;
+      const tag = document.createElement('small'); tag.textContent = `@${(m.user || {}).username} · ${(m.user || {}).id}`;
+      txt.append(name, tag); row.append(img, txt);
+      row.addEventListener('mousedown', e => { e.preventDefault(); choose(m); });
+      list.appendChild(row);
+    });
+    list.classList.remove('hidden');
+  };
+  const refresh = () => {
+    const q = inp.value.trim().toLowerCase();
+    const local = guildMembersList.filter(m => !q || memberSearchText(m).includes(q));
+    items = local.slice(0, 8); active = items.length && q ? 0 : -1;
+    paint();
+    // Gros serveur (ou liste indisponible) : recherche aussi côté Discord
+    const needRemote = q.length >= 2 && !/^\d{15,25}$/.test(q) && (guildMembersList.length >= 1000 || !guildMembersList.length || local.length < 3);
+    clearTimeout(timer);
+    if (needRemote && selectedGuild) {
+      const my = ++seq, gid = selectedGuild.id;
+      timer = setTimeout(async () => {
+        try {
+          const found = await discordRequest('GET', `/guilds/${gid}/members/search?query=${encodeURIComponent(q)}&limit=8`);
+          if (my !== seq || !Array.isArray(found) || (selectedGuild && selectedGuild.id !== gid)) return;
+          const seen = new Set(items.map(m => m.user.id));
+          found.filter(m => m.user && !m.user.bot && !seen.has(m.user.id)).forEach(m => items.push(m));
+          items = items.slice(0, 10);
+          if (!list.classList.contains('hidden')) paint();
+        } catch (e) {}
+      }, 280);
+    }
+  };
+
+  inp.addEventListener('focus', refresh);
+  inp.addEventListener('input', () => { if (inp.dataset.label && inp.value !== inp.dataset.label) clearChoice(); refresh(); });
+  inp.addEventListener('blur', () => setTimeout(close, 120));
+  inp.addEventListener('keydown', e => {
+    if (list.classList.contains('hidden') && (e.key === 'ArrowDown')) { refresh(); return; }
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (!items.length) return;
+      active = (active + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length;
+      paint();
+      const el = list.querySelector('.mp-item.active'); if (el) el.scrollIntoView({ block: 'nearest' });
+    } else if (e.key === 'Enter' && !list.classList.contains('hidden') && items[active]) {
+      e.preventDefault(); choose(items[active]);
+    } else if (e.key === 'Escape') { close(); }
   });
+}
+
+// Transforme tous les champs « ID du membre » en sélecteurs avec recherche
+function bindMemberInputs() {
   document.querySelectorAll('input.input').forEach(inp => {
     const label = (inp.closest('label')?.querySelector('span')?.textContent || '').toLowerCase();
-    // « unban-user » vise un utilisateur banni (donc plus sur le serveur) : pas de suggestions
-    if (/membre|utilisateur/.test(label) && inp.id !== 'unban-user') {
-      inp.setAttribute('list', 'member-suggestions');
-      inp.setAttribute('autocomplete', 'off');
-    }
+    // « unban-user » vise un utilisateur banni (donc plus sur le serveur) : on garde la saisie d'ID
+    if (/membre|utilisateur/.test(label) && inp.id !== 'unban-user') initMemberPicker(inp);
   });
 }
 
 async function loadGuildMembers(guildId) {
   guildMembersList = []; membersNotice = '';
+  document.querySelectorAll('.mp input').forEach(i => { i.value = ''; delete i.dataset.userId; delete i.dataset.label; i.classList.remove('mp-chosen'); const a = i.parentNode.querySelector('.mp-avatar'); if (a) a.classList.add('hidden'); });
   bindMemberInputs();
   try {
     const members = await discordRequest('GET', `/guilds/${guildId}/members?limit=1000`);
@@ -685,7 +772,10 @@ async function tryDM(userId, content) {
 
 function val(id) {
   const el = document.getElementById(id);
-  return el ? el.value.trim() : '';
+  if (!el) return '';
+  // Champ « membre » : si un membre a été choisi dans la liste, on renvoie son ID
+  if (el.dataset.userId && el.value === el.dataset.label) return el.dataset.userId;
+  return el.value.trim();
 }
 
 function requireSnowflake(id, label) {
@@ -805,7 +895,7 @@ window.executeBotCommand = async function(cmdName) {
         break;
       }
       case 'avertissements':
-        okMsg = await botJob('avertissements', { userId: requireSnowflake(val('warns-user'), 'ID du membre') });
+        okMsg = await botJob('avertissements', { userId: await resolveUser(val('warns-user'), guildId) });
         break;
       case 'effacer-avertissements': {
         const user = await resolveUser(val('clearwarns-user'), guildId);
@@ -855,19 +945,19 @@ window.executeBotCommand = async function(cmdName) {
         break;
       }
       case 'fin-sourdine': {
-        const user = requireSnowflake(val('untimeout-user'), 'ID du membre');
+        const user = await resolveUser(val('untimeout-user'), guildId);
         await discordRequest('PATCH', `/guilds/${guildId}/members/${user}`, { communication_disabled_until: null }, `${modName()} : fin de sourdine`);
         okMsg = `✅ Sourdine retirée pour ${user}.`;
         break;
       }
       case 'deconnecter': {
-        const user = requireSnowflake(val('vdisc-user'), 'ID du membre');
+        const user = await resolveUser(val('vdisc-user'), guildId);
         await discordRequest('PATCH', `/guilds/${guildId}/members/${user}`, { channel_id: null }, `${modName()} : déconnexion vocale`);
         okMsg = `✅ Membre ${user} déconnecté du vocal.`;
         break;
       }
       case 'deplacer': {
-        const user = requireSnowflake(val('vmove-user'), 'ID du membre');
+        const user = await resolveUser(val('vmove-user'), guildId);
         const target = val('vmove-channel');
         if (!target) throw new UserInputError('Choisis un salon vocal.');
         await discordRequest('PATCH', `/guilds/${guildId}/members/${user}`, { channel_id: target }, `${modName()} : déplacement vocal`);
@@ -897,7 +987,7 @@ window.executeBotCommand = async function(cmdName) {
         break;
       }
       case 'role-remplacer': {
-        const member = requireSnowflake(val('rolerep-member'), 'ID du membre');
+        const member = await resolveUser(val('rolerep-member'), guildId);
         const oldRole = val('rolerep-old'), newRole = val('rolerep-new');
         if (!oldRole || !newRole) throw new UserInputError('Choisis le rôle à retirer et le rôle à donner.');
         if (oldRole === newRole) throw new UserInputError('Les deux rôles sont identiques.');
@@ -980,7 +1070,7 @@ window.executeBotCommand = async function(cmdName) {
 
       case 'role-ajouter':
       case 'role-retirer': {
-        const member = requireSnowflake(val('role-member-id'), 'ID du membre');
+        const member = await resolveUser(val('role-member-id'), guildId);
         const role = requireSnowflake(val('role-target-id'), 'ID du rôle');
         await discordRequest(cmdName === 'role-ajouter' ? 'PUT' : 'DELETE',
           `/guilds/${guildId}/members/${member}/roles/${role}`);
