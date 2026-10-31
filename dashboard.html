@@ -471,5 +471,15 @@
 </div>
 
 <script src="dashboard.js"></script>
+<script>
+// Halo lumineux qui suit la souris sur les cartes (décoratif)
+document.addEventListener('pointermove', function (e) {
+  var t = e.target.closest && e.target.closest('.cmd, .guild, .quick button, .journal, .overview-head');
+  if (!t) return;
+  var r = t.getBoundingClientRect();
+  t.style.setProperty('--mx', (e.clientX - r.left) + 'px');
+  t.style.setProperty('--my', (e.clientY - r.top) + 'px');
+}, { passive: true });
+</script>
 </body>
 </html>
