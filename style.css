@@ -300,3 +300,28 @@ pre.diag { background: var(--bg); border: 1px solid var(--line); border-radius: 
 @media (prefers-reduced-motion: reduce) {
   * { animation: none !important; transition: none !important; }
 }
+
+/* ---------- Finitions du dashboard : cartes sans trous, espacements resserrés ---------- */
+.cmd-grid { display: block; column-width: 290px; column-gap: 16px; }
+.cmd { break-inside: avoid; -webkit-column-break-inside: avoid; page-break-inside: avoid; margin: 0 0 16px; padding: 16px; gap: 12px; transition: border-color .15s, background .15s, box-shadow .15s; }
+.cmd:hover { background: #191a38; box-shadow: 0 8px 24px rgba(0,0,0,.25); }
+.cmd h4 { font-size: 16.5px; }
+.cmd .field, .cmd .picker { gap: 5px; }
+.tab-content { gap: 18px; }
+.content { padding: 24px 32px 52px; max-width: 1280px; }
+.topbar { padding: 18px 32px 14px; }
+.guild { transition: border-color .15s, transform .15s; }
+.guild:hover { transform: translateY(-1px); }
+.guild-grid { gap: 14px; }
+.cmd-category-content { gap: 14px; }
+.console { gap: 20px; }
+#ov-body { gap: 20px !important; }
+.quick button { transition: border-color .15s, background .15s; }
+.btn { transition: background .15s, border-color .15s, transform .08s, box-shadow .15s; }
+.btn-primary:hover, .btn-ok:hover, .btn-warn:hover, .btn-danger:hover { box-shadow: 0 4px 14px rgba(0,0,0,.3); }
+.category-btn.active { box-shadow: inset 3px 0 0 var(--accent); }
+@media (max-width: 900px) {
+  .cmd-grid { column-width: auto; column-count: 1; }
+  .content { padding: 20px 16px 48px; }
+  .topbar { padding: 18px 16px; }
+}
